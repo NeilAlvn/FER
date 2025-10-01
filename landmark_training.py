@@ -2,813 +2,557 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms as transforms
+from torchvision import transforms, models
 from PIL import Image
-import numpy as np
 import os
+import xml.etree.ElementTree as ET
+import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import cv2
-import face_alignment
+import torch.nn.functional as F
 
-# ======================= MobileFaceNet Architecture =======================
-class ConvBlock(nn.Module):
-    def __init__(self, in_c, out_c, kernel=(1, 1), stride=(1, 1), padding=(0, 0), groups=1):
-        super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(in_c, out_c, kernel, stride, padding, groups=groups, bias=False)
-        self.bn = nn.BatchNorm2d(out_c)
-        self.prelu = nn.PReLU(out_c)
-    
-    def forward(self, x):
-        return self.prelu(self.bn(self.conv(x)))
 
-class DepthWise(nn.Module):
-    def __init__(self, in_c, out_c, residual=False, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=1):
-        super(DepthWise, self).__init__()
-        self.conv = nn.Sequential(
-            ConvBlock(in_c, groups, kernel=(1, 1), stride=(1, 1), padding=(0, 0)),
-            ConvBlock(groups, groups, kernel=kernel, stride=stride, padding=padding, groups=groups),
-            nn.Conv2d(groups, out_c, (1, 1), (1, 1), (0, 0), bias=False),
-            nn.BatchNorm2d(out_c)
-        )
-        self.residual = residual
-    
-    def forward(self, x):
-        out = self.conv(x)
-        if self.residual:
-            return out + x
-        return out
-
-class MobileFaceNet(nn.Module):
+class FAN(nn.Module):
+    """Face Alignment Network for landmark detection"""
     def __init__(self, num_landmarks=68):
-        super(MobileFaceNet, self).__init__()
+        super(FAN, self).__init__()
+        self.num_landmarks = num_landmarks
         
-        self.conv1 = ConvBlock(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1))
-        self.conv2_dw = ConvBlock(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64)
+        # Using MobileNetV2 as backbone for FAN
+        mobilenet = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.DEFAULT)
+        self.features = mobilenet.features
         
-        self.conv_23 = DepthWise(64, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128)
-        self.conv_3 = DepthWise(64, 64, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=128)
-        self.conv_34 = DepthWise(64, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256)
-        
-        self.conv_4 = nn.Sequential(
-            DepthWise(128, 128, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=256),
-            DepthWise(128, 128, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=256),
-            DepthWise(128, 128, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=256),
-            DepthWise(128, 128, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=256)
-        )
-        
-        self.conv_45 = DepthWise(128, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256)
-        self.conv_5 = nn.Sequential(
-            DepthWise(128, 128, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=256),
-            DepthWise(128, 128, residual=True, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=256)
-        )
-        
-        self.conv_6_sep = ConvBlock(128, 512, kernel=(1, 1), stride=(1, 1), padding=(0, 0))
-        self.conv_6_flatten = nn.AdaptiveAvgPool2d(1)
-        self.linear = nn.Linear(512, num_landmarks * 2)
+        # Heatmap prediction layers
+        self.conv1 = nn.Conv2d(1280, 512, kernel_size=1)
+        self.conv2 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
+        self.heatmap = nn.Conv2d(256, num_landmarks, kernel_size=1)
         
     def forward(self, x):
-        out = self.conv1(x)
-        out = self.conv2_dw(out)
-        out = self.conv_23(out)
-        out = self.conv_3(out)
-        out = self.conv_34(out)
-        out = self.conv_4(out)
-        out = self.conv_45(out)
-        out = self.conv_5(out)
-        out = self.conv_6_sep(out)
-        out = self.conv_6_flatten(out)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out.view(-1, 68, 2)
+        # Extract features
+        features = self.features(x)
+        
+        # Generate heatmaps for landmarks
+        x = F.relu(self.conv1(features))
+        x = F.relu(self.conv2(x))
+        heatmaps = self.heatmap(x)  # Bx68xHxW
+        
+        # Get landmark coordinates from heatmaps
+        batch_size = heatmaps.size(0)
+        heatmaps_flat = heatmaps.reshape(batch_size, self.num_landmarks, -1)
+        
+        # Soft-argmax to get coordinates
+        softmax_maps = F.softmax(heatmaps_flat, dim=2)
+        
+        # Create coordinate grids
+        h, w = heatmaps.size(2), heatmaps.size(3)
+        grid_x = torch.linspace(0, w-1, w).to(x.device)
+        grid_y = torch.linspace(0, h-1, h).to(x.device)
+        grid_y, grid_x = torch.meshgrid(grid_y, grid_x, indexing='ij')
+        grid = torch.stack([grid_x, grid_y], dim=0).reshape(2, -1)  # 2xN
+        
+        # Compute weighted coordinates
+        landmarks = torch.matmul(softmax_maps, grid.T.unsqueeze(0))  # Bx68x2
+        
+        return features, landmarks, heatmaps
 
-# ======================= PFA Teacher Network =======================
-class PFANetwork(nn.Module):
-    def __init__(self, num_landmarks=68):
-        super(PFANetwork, self).__init__()
-        
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, 7, 2, 3), nn.BatchNorm2d(64), nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2, 1),
-            self._make_layer(64, 128, 3),
-            self._make_layer(128, 256, 4, stride=2),
-            self._make_layer(256, 512, 6, stride=2),
-            nn.AdaptiveAvgPool2d(1)
-        )
-        
-        self.fc = nn.Linear(512, num_landmarks * 2)
-    
-    def _make_layer(self, in_c, out_c, blocks, stride=1):
-        layers = []
-        layers.append(nn.Conv2d(in_c, out_c, 3, stride, 1))
-        layers.append(nn.BatchNorm2d(out_c))
-        layers.append(nn.ReLU(inplace=True))
-        
-        for _ in range(blocks - 1):
-            layers.append(nn.Conv2d(out_c, out_c, 3, 1, 1))
-            layers.append(nn.BatchNorm2d(out_c))
-            layers.append(nn.ReLU(inplace=True))
-        
-        return nn.Sequential(*layers)
-    
-    def forward(self, x):
-        out = self.features(x)
-        out = out.view(out.size(0), -1)
-        out = self.fc(out)
-        return out.view(-1, 68, 2)
 
-# ======================= Face Alignment Landmark Extractor =======================
-class FaceAlignmentExtractor:
-    """Extract 68-point facial landmarks using face_alignment library"""
-    def __init__(self, device='cuda'):
+class W300Dataset(Dataset):
+    """
+    300W Dataset Loader
+    Supports both train and test splits
+    """
+    def __init__(self, root_dir, split='train', transform=None, img_size=112):
         """
-        Initialize face_alignment detector
-        
         Args:
-            device: 'cuda' or 'cpu'
+            root_dir: Path to 300W dataset root
+            split: 'train' or 'test'
+            transform: Optional transform
+            img_size: Target image size
         """
-        try:
-            # Use 2D landmarks with the best available model
-            self.fa = face_alignment.FaceAlignment(
-                face_alignment.LandmarksType.TWO_D,
-                device=device,
-                flip_input=False
-            )
-            print(f"Loaded face_alignment on {device}")
-        except Exception as e:
-            print(f"Failed to load on {device}, falling back to CPU")
-            self.fa = face_alignment.FaceAlignment(
-                face_alignment.LandmarksType.TWO_D,
-                device='cpu',
-                flip_input=False
-            )
-            print("Loaded face_alignment on CPU")
-    
-    def extract_landmarks(self, image_path, target_size=(112, 112)):
-        """
-        Extract 68 facial landmarks from image
-        
-        Args:
-            image_path: Path to image file
-            target_size: Target image size (width, height)
-            
-        Returns:
-            landmarks: numpy array of shape (68, 2) with normalized coordinates
-            success: boolean indicating if face was detected
-        """
-        try:
-            # Read image
-            img = cv2.imread(image_path)
-            if img is None:
-                return None, False
-            
-            # Convert BGR to RGB
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            original_h, original_w = img_rgb.shape[:2]
-            
-            # Detect landmarks
-            preds = self.fa.get_landmarks(img_rgb)
-            
-            if preds is None or len(preds) == 0:
-                return None, False
-            
-            # Get first face landmarks (68 points)
-            landmarks = preds[0]
-            
-            # Normalize landmarks to target size
-            scale_x = target_size[0] / original_w
-            scale_y = target_size[1] / original_h
-            
-            landmarks[:, 0] *= scale_x
-            landmarks[:, 1] *= scale_y
-            
-            return landmarks.astype(np.float32), True
-            
-        except Exception as e:
-            return None, False
-
-# ======================= Dataset with Face Alignment Landmarks =======================
-class RAFDBLandmarkDataset(Dataset):
-    def __init__(self, root_dir, transform=None, train=True, 
-                 device='cuda', cache_landmarks=True):
         self.root_dir = root_dir
+        self.split = split
         self.transform = transform
-        self.train = train
-        self.cache_landmarks = cache_landmarks
+        self.img_size = img_size
         self.data = []
         
-        # Initialize face_alignment extractor
-        print("\nInitializing face_alignment landmark extractor...")
-        try:
-            self.landmark_extractor = FaceAlignmentExtractor(device=device)
-        except Exception as e:
-            print(f"\nError: {e}")
-            print("\nTo install face_alignment:")
-            print("  pip install face-alignment")
-            raise
+        # Define folders based on split
+        if split == 'train':
+            # 300W training set
+            folders = ['afw', 'helen/trainset', 'lfpw/trainset']
+            xml_file = 'labels_ibug_300W_train.xml'
+        else:
+            # 300W test sets (common + challenging)
+            folders = ['helen/testset', 'lfpw/testset', 'ibug']
+            xml_file = 'labels_ibug_300W_test.xml'
         
-        # Dataset structure
-        split = 'train' if train else 'test'
+        # Load annotations from XML
+        self.load_annotations(xml_file)
         
-        # Try multiple possible paths
-        possible_base_paths = [
-            os.path.join(root_dir, 'archive', 'DATASET', split),
-            os.path.join(root_dir, 'DATASET', split),
-            os.path.join(root_dir, split)
-        ]
+    def load_annotations(self, xml_file):
+        """Load annotations from 300W XML file"""
+        xml_path = os.path.join(self.root_dir, xml_file)
         
-        img_dir = None
-        for base_path in possible_base_paths:
-            if os.path.exists(base_path):
-                img_dir = base_path
-                break
-        
-        if img_dir is None:
-            raise ValueError(f"Could not find {split} directory in {root_dir}")
-        
-        self.img_dir = img_dir
-        print(f"Using directory: {img_dir}")
-        
-        # Cache file for landmarks
-        cache_file = os.path.join(root_dir, f'landmarks_cache_facealign_{split}.npy')
-        
-        # Load cached landmarks if available
-        if cache_landmarks and os.path.exists(cache_file):
-            print(f"Loading cached landmarks from {cache_file}...")
-            cache_data = np.load(cache_file, allow_pickle=True).item()
-            self.data = cache_data['data']
-            print(f"Loaded {len(self.data)} cached samples")
+        if not os.path.exists(xml_path):
+            print(f"Warning: {xml_path} not found. Trying to load from folders...")
+            self.load_from_folders()
             return
         
-        # Extract landmarks for all images
-        emotion_dirs = ['1', '2', '3', '4', '5', '6', '7']
-        failed_extractions = 0
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
         
-        print("\nExtracting landmarks from images...")
-        for emotion_class in emotion_dirs:
-            class_dir = os.path.join(img_dir, emotion_class)
-            if not os.path.exists(class_dir):
+        for image in root.find('images').findall('image'):
+            img_path = os.path.join(self.root_dir, image.get('file'))
+            
+            if not os.path.exists(img_path):
                 continue
-                
-            images = [f for f in os.listdir(class_dir) 
-                     if f.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'))]
             
-            print(f"Processing class {emotion_class}: {len(images)} images")
+            # Get bounding box
+            box = image.find('box')
+            if box is None:
+                continue
             
-            for img_name in tqdm(images, desc=f"Class {emotion_class}"):
-                img_path = os.path.join(class_dir, img_name)
-                
-                # Extract landmarks using face_alignment
-                landmarks, success = self.landmark_extractor.extract_landmarks(img_path)
-                
-                if success:
-                    rel_path = os.path.join(emotion_class, img_name)
-                    self.data.append((rel_path, landmarks, int(emotion_class)))
-                else:
-                    failed_extractions += 1
+            # Get landmarks (68 points)
+            landmarks = []
+            for part in box.findall('part'):
+                x = float(part.get('x'))
+                y = float(part.get('y'))
+                landmarks.append([x, y])
+            
+            if len(landmarks) != 68:
+                continue
+            
+            # Get image dimensions
+            width = int(image.get('width'))
+            height = int(image.get('height'))
+            
+            # Get bounding box coordinates
+            left = float(box.get('left'))
+            top = float(box.get('top'))
+            box_width = float(box.get('width'))
+            box_height = float(box.get('height'))
+            
+            self.data.append({
+                'image_path': img_path,
+                'landmarks': np.array(landmarks, dtype=np.float32),
+                'bbox': [left, top, box_width, box_height],
+                'img_size': [width, height]
+            })
         
-        print(f"\nSuccessfully extracted landmarks for {len(self.data)} images")
-        if failed_extractions > 0:
-            print(f"Failed to detect faces in {failed_extractions} images (skipped)")
+        print(f"Loaded {len(self.data)} images for {self.split} split")
+    
+    def load_from_folders(self):
+        """Fallback: Load from folder structure with .pts files"""
+        folders = {
+            'train': ['afw', 'helen/trainset', 'lfpw/trainset'],
+            'test': ['helen/testset', 'lfpw/testset', 'ibug']
+        }
         
-        # Cache landmarks for future use
-        if cache_landmarks and len(self.data) > 0:
-            print(f"Saving landmarks cache to {cache_file}...")
-            np.save(cache_file, {'data': self.data})
-            print("Cache saved")
+        for folder in folders[self.split]:
+            folder_path = os.path.join(self.root_dir, folder)
+            if not os.path.exists(folder_path):
+                continue
+            
+            for img_name in os.listdir(folder_path):
+                if not img_name.lower().endswith(('.jpg', '.png', '.jpeg')):
+                    continue
+                
+                img_path = os.path.join(folder_path, img_name)
+                pts_path = img_path.rsplit('.', 1)[0] + '.pts'
+                
+                if not os.path.exists(pts_path):
+                    continue
+                
+                # Read landmarks from .pts file
+                landmarks = self.read_pts_file(pts_path)
+                if landmarks is None or len(landmarks) != 68:
+                    continue
+                
+                # Get image size
+                try:
+                    img = Image.open(img_path)
+                    width, height = img.size
+                    img.close()
+                except:
+                    continue
+                
+                self.data.append({
+                    'image_path': img_path,
+                    'landmarks': landmarks,
+                    'bbox': [0, 0, width, height],
+                    'img_size': [width, height]
+                })
+        
+        print(f"Loaded {len(self.data)} images from folders for {self.split} split")
+    
+    def read_pts_file(self, pts_path):
+        """Read landmarks from .pts file"""
+        try:
+            with open(pts_path, 'r') as f:
+                lines = f.readlines()
+            
+            # Find data lines (skip header)
+            data_lines = []
+            in_data = False
+            for line in lines:
+                if line.strip() == '{':
+                    in_data = True
+                    continue
+                if line.strip() == '}':
+                    break
+                if in_data:
+                    data_lines.append(line.strip())
+            
+            # Parse coordinates
+            landmarks = []
+            for line in data_lines:
+                if not line:
+                    continue
+                coords = line.split()
+                if len(coords) >= 2:
+                    x, y = float(coords[0]), float(coords[1])
+                    landmarks.append([x, y])
+            
+            return np.array(landmarks, dtype=np.float32)
+        except:
+            return None
     
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
-        rel_path, landmarks, emotion_label = self.data[idx]
-        img_path = os.path.join(self.img_dir, rel_path)
+        sample = self.data[idx]
         
-        try:
-            # Load image
-            image = Image.open(img_path).convert('RGB')
-            
-            # Apply transforms
-            if self.transform:
-                image = self.transform(image)
-            
-            landmarks = torch.FloatTensor(landmarks)
-            
-            return image, landmarks
-        except Exception as e:
-            print(f"Error loading {rel_path}: {e}")
-            # Return a dummy sample
-            dummy_img = torch.zeros(3, 112, 112)
-            dummy_landmarks = torch.zeros(68, 2)
-            return dummy_img, dummy_landmarks
+        # Load image
+        image = Image.open(sample['image_path']).convert('RGB')
+        landmarks = sample['landmarks'].copy()
+        
+        # Crop to bounding box with padding
+        bbox = sample['bbox']
+        img_w, img_h = sample['img_size']
+        
+        # Add padding to bbox
+        padding = 0.2
+        x, y, w, h = bbox
+        x_pad = w * padding
+        y_pad = h * padding
+        x = max(0, x - x_pad)
+        y = max(0, y - y_pad)
+        w = min(img_w - x, w + 2 * x_pad)
+        h = min(img_h - y, h + 2 * y_pad)
+        
+        # Crop image
+        image = image.crop((int(x), int(y), int(x + w), int(y + h)))
+        
+        # Adjust landmarks relative to crop
+        landmarks[:, 0] -= x
+        landmarks[:, 1] -= y
+        
+        # Resize image to target size
+        orig_w, orig_h = image.size
+        image = image.resize((self.img_size, self.img_size), Image.BILINEAR)
+        
+        # Scale landmarks
+        scale_x = self.img_size / orig_w
+        scale_y = self.img_size / orig_h
+        landmarks[:, 0] *= scale_x
+        landmarks[:, 1] *= scale_y
+        
+        # Normalize landmarks to [0, 1]
+        landmarks_normalized = landmarks / self.img_size
+        
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+        
+        return image, torch.from_numpy(landmarks_normalized).float()
 
-# ======================= Accuracy Metrics =======================
-class LandmarkAccuracyMetrics:
-    """Calculate accuracy metrics for facial landmark detection"""
-    
-    @staticmethod
-    def calculate_nme(predictions, targets, normalization='inter_ocular'):
-        """Calculate Normalized Mean Error (NME)"""
-        distances = torch.sqrt(torch.sum((predictions - targets) ** 2, dim=2))
-        
-        if normalization == 'inter_ocular':
-            # Distance between outer eye corners (landmarks 36 and 45)
-            left_eye = targets[:, 36, :]
-            right_eye = targets[:, 45, :]
-            norm_factor = torch.sqrt(torch.sum((left_eye - right_eye) ** 2, dim=1))
-        else:
-            # Bounding box diagonal
-            bbox_min = torch.min(targets, dim=1)[0]
-            bbox_max = torch.max(targets, dim=1)[0]
-            norm_factor = torch.sqrt(torch.sum((bbox_max - bbox_min) ** 2, dim=1))
-        
-        norm_factor = torch.clamp(norm_factor, min=1e-6)
-        nme = torch.mean(distances, dim=1) / norm_factor
-        return torch.mean(nme).item()
-    
-    @staticmethod
-    def calculate_auc(predictions, targets, threshold=0.08):
-        """Calculate Area Under Curve (AUC)"""
-        distances = torch.sqrt(torch.sum((predictions - targets) ** 2, dim=2))
-        
-        left_eye = targets[:, 36, :]
-        right_eye = targets[:, 45, :]
-        norm_factor = torch.sqrt(torch.sum((left_eye - right_eye) ** 2, dim=1))
-        norm_factor = torch.clamp(norm_factor, min=1e-6)
-        
-        nme_per_sample = torch.mean(distances, dim=1) / norm_factor
-        auc = (nme_per_sample < threshold).float().mean().item() * 100
-        return auc
-    
-    @staticmethod
-    def calculate_failure_rate(predictions, targets, threshold=0.1):
-        """Calculate failure rate"""
-        distances = torch.sqrt(torch.sum((predictions - targets) ** 2, dim=2))
-        
-        left_eye = targets[:, 36, :]
-        right_eye = targets[:, 45, :]
-        norm_factor = torch.sqrt(torch.sum((left_eye - right_eye) ** 2, dim=1))
-        norm_factor = torch.clamp(norm_factor, min=1e-6)
-        
-        nme_per_sample = torch.mean(distances, dim=1) / norm_factor
-        failure_rate = (nme_per_sample > threshold).float().mean().item() * 100
-        return failure_rate
-    
-    @staticmethod
-    def calculate_accuracy(predictions, targets, pixel_threshold=5.0):
-        """Calculate simple accuracy: percentage of landmarks within pixel threshold"""
-        distances = torch.sqrt(torch.sum((predictions - targets) ** 2, dim=2))
-        correct_landmarks = (distances < pixel_threshold).float()
-        accuracy = torch.mean(correct_landmarks).item() * 100
-        return accuracy
 
-# ======================= Knowledge Distillation Loss =======================
-class DistillationLoss(nn.Module):
-    def __init__(self, alpha=0.5, temperature=3.0):
-        super(DistillationLoss, self).__init__()
-        self.alpha = alpha
-        self.temperature = temperature
-        self.mse_loss = nn.MSELoss()
-    
-    def forward(self, student_output, teacher_output, target):
-        hard_loss = self.mse_loss(student_output, target)
-        soft_loss = self.mse_loss(
-            student_output / self.temperature,
-            teacher_output.detach() / self.temperature
-        )
-        total_loss = self.alpha * hard_loss + (1 - self.alpha) * soft_loss
-        return total_loss, hard_loss, soft_loss
+def get_transforms(img_size=112, augment=True):
+    """Get data transforms"""
+    if augment:
+        transform = transforms.Compose([
+            transforms.ColorJitter(brightness=0.2, contrast=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                               std=[0.229, 0.224, 0.225])
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                               std=[0.229, 0.224, 0.225])
+        ])
+    return transform
 
-# ======================= Training Pipeline =======================
-class FaceAlignmentTrainer:
-    def __init__(self, student_model, teacher_model, device='cuda'):
-        self.device = device
-        self.student = student_model.to(device)
-        self.teacher = teacher_model.to(device)
-        self.teacher.eval()
-        
-        for param in self.teacher.parameters():
-            param.requires_grad = False
-        
-        self.criterion = DistillationLoss(alpha=0.5, temperature=3.0)
-        self.optimizer = optim.SGD(
-            self.student.parameters(),
-            lr=0.01,
-            momentum=0.9,
-            weight_decay=5e-4
-        )
-        
-        self.scheduler = optim.lr_scheduler.MultiStepLR(
-            self.optimizer,
-            milestones=[60, 120, 160],
-            gamma=0.1
-        )
-        
-        self.history = {
-            'train_loss': [],
-            'val_loss': [],
-            'train_hard_loss': [],
-            'train_soft_loss': [],
-            'train_nme': [],
-            'val_nme': [],
-            'train_auc': [],
-            'val_auc': [],
-            'val_failure_rate': [],
-            'train_accuracy': [],
-            'val_accuracy': []
-        }
-        
-        self.metrics = LandmarkAccuracyMetrics()
+
+def compute_nme(predictions, targets, img_size=112):
+    """
+    Compute Normalized Mean Error (NME)
+    Normalized by inter-ocular distance
+    """
+    # Convert normalized coordinates back to pixel coordinates
+    pred_pts = predictions * img_size
+    target_pts = targets * img_size
     
-    def train_epoch(self, train_loader):
-        self.student.train()
-        running_loss = 0.0
-        running_hard_loss = 0.0
-        running_soft_loss = 0.0
-        running_nme = 0.0
-        running_auc = 0.0
-        running_accuracy = 0.0
+    # Compute inter-ocular distance (between eyes)
+    # Left eye: points 36-41, Right eye: points 42-47
+    left_eye = target_pts[:, 36:42, :].mean(dim=1)
+    right_eye = target_pts[:, 42:48, :].mean(dim=1)
+    inter_ocular = torch.norm(left_eye - right_eye, dim=1)
+    
+    # Compute mean error
+    error = torch.norm(pred_pts - target_pts, dim=2).mean(dim=1)
+    
+    # Normalize by inter-ocular distance
+    nme = error / inter_ocular
+    
+    return nme.mean().item() * 100  # Return as percentage
+
+
+def compute_accuracy(predictions, targets, img_size=112, threshold=0.05):
+    """
+    Compute accuracy as percentage of landmarks within threshold
+    threshold: normalized distance threshold (default 0.05 = 5% of image size)
+    """
+    # Compute L2 distance for each landmark
+    distances = torch.norm(predictions - targets, dim=2)  # Bx68
+    
+    # Count landmarks within threshold
+    accurate = (distances < threshold).float()
+    
+    # Average accuracy across all landmarks and batch
+    accuracy = accurate.mean().item() * 100
+    
+    return accuracy
+
+
+def train_epoch(model, train_loader, optimizer, criterion, device, img_size=112):
+    """Train for one epoch"""
+    model.train()
+    running_loss = 0.0
+    running_nme = 0.0
+    running_acc = 0.0
+    
+    pbar = tqdm(train_loader, desc='Training')
+    for images, landmarks in pbar:
+        images = images.to(device)
+        landmarks = landmarks.to(device)
         
-        pbar = tqdm(train_loader, desc='Training')
-        for images, targets in pbar:
-            images = images.to(self.device)
-            targets = targets.to(self.device)
+        optimizer.zero_grad()
+        
+        # Forward pass
+        _, pred_landmarks, heatmaps = model(images)
+        
+        # Normalize predicted landmarks to [0, 1]
+        h, w = heatmaps.size(2), heatmaps.size(3)
+        pred_landmarks_norm = pred_landmarks.clone()
+        pred_landmarks_norm[:, :, 0] = pred_landmarks[:, :, 0] / (w - 1)
+        pred_landmarks_norm[:, :, 1] = pred_landmarks[:, :, 1] / (h - 1)
+        
+        # Compute MSE loss
+        loss = criterion(pred_landmarks_norm, landmarks)
+        
+        # Backward pass
+        loss.backward()
+        optimizer.step()
+        
+        # Compute metrics
+        with torch.no_grad():
+            nme = compute_nme(pred_landmarks_norm, landmarks, img_size)
+            acc = compute_accuracy(pred_landmarks_norm, landmarks, img_size)
+        
+        running_loss += loss.item()
+        running_nme += nme
+        running_acc += acc
+        
+        pbar.set_postfix({
+            'loss': running_loss / (pbar.n + 1),
+            'NME': running_nme / (pbar.n + 1),
+            'Acc': running_acc / (pbar.n + 1)
+        })
+    
+    epoch_loss = running_loss / len(train_loader)
+    epoch_nme = running_nme / len(train_loader)
+    epoch_acc = running_acc / len(train_loader)
+    return epoch_loss, epoch_nme, epoch_acc
+
+
+def validate(model, val_loader, criterion, device, img_size=112):
+    """Validate the model"""
+    model.eval()
+    running_loss = 0.0
+    running_nme = 0.0
+    running_acc = 0.0
+    
+    with torch.no_grad():
+        pbar = tqdm(val_loader, desc='Validation')
+        for images, landmarks in pbar:
+            images = images.to(device)
+            landmarks = landmarks.to(device)
             
-            self.optimizer.zero_grad()
+            # Forward pass
+            _, pred_landmarks, heatmaps = model(images)
             
-            student_output = self.student(images)
+            # Normalize predicted landmarks
+            h, w = heatmaps.size(2), heatmaps.size(3)
+            pred_landmarks_norm = pred_landmarks.clone()
+            pred_landmarks_norm[:, :, 0] = pred_landmarks[:, :, 0] / (w - 1)
+            pred_landmarks_norm[:, :, 1] = pred_landmarks[:, :, 1] / (h - 1)
             
-            with torch.no_grad():
-                teacher_output = self.teacher(images)
-            
-            loss, hard_loss, soft_loss = self.criterion(
-                student_output, teacher_output, targets
-            )
-            
-            with torch.no_grad():
-                nme = self.metrics.calculate_nme(student_output, targets)
-                auc = self.metrics.calculate_auc(student_output, targets)
-                accuracy = self.metrics.calculate_accuracy(student_output, targets, pixel_threshold=5.0)
-            
-            loss.backward()
-            self.optimizer.step()
+            # Compute metrics
+            loss = criterion(pred_landmarks_norm, landmarks)
+            nme = compute_nme(pred_landmarks_norm, landmarks, img_size)
+            acc = compute_accuracy(pred_landmarks_norm, landmarks, img_size)
             
             running_loss += loss.item()
-            running_hard_loss += hard_loss.item()
-            running_soft_loss += soft_loss.item()
             running_nme += nme
-            running_auc += auc
-            running_accuracy += accuracy
+            running_acc += acc
             
             pbar.set_postfix({
-                'loss': f'{loss.item():.4f}',
-                'acc': f'{accuracy:.1f}%',
-                'NME': f'{nme:.4f}'
+                'loss': running_loss / (pbar.n + 1),
+                'NME': running_nme / (pbar.n + 1),
+                'Acc': running_acc / (pbar.n + 1)
             })
-        
-        epoch_loss = running_loss / len(train_loader)
-        epoch_hard_loss = running_hard_loss / len(train_loader)
-        epoch_soft_loss = running_soft_loss / len(train_loader)
-        epoch_nme = running_nme / len(train_loader)
-        epoch_auc = running_auc / len(train_loader)
-        epoch_accuracy = running_accuracy / len(train_loader)
-        
-        return epoch_loss, epoch_hard_loss, epoch_soft_loss, epoch_nme, epoch_auc, epoch_accuracy
     
-    def validate(self, val_loader):
-        self.student.eval()
-        running_loss = 0.0
-        running_nme = 0.0
-        running_auc = 0.0
-        running_failure_rate = 0.0
-        running_accuracy = 0.0
-        
-        with torch.no_grad():
-            for images, targets in tqdm(val_loader, desc='Validation'):
-                images = images.to(self.device)
-                targets = targets.to(self.device)
-                
-                student_output = self.student(images)
-                loss = nn.MSELoss()(student_output, targets)
-                
-                nme = self.metrics.calculate_nme(student_output, targets)
-                auc = self.metrics.calculate_auc(student_output, targets, threshold=0.08)
-                failure_rate = self.metrics.calculate_failure_rate(student_output, targets, threshold=0.1)
-                accuracy = self.metrics.calculate_accuracy(student_output, targets, pixel_threshold=5.0)
-                
-                running_loss += loss.item()
-                running_nme += nme
-                running_auc += auc
-                running_failure_rate += failure_rate
-                running_accuracy += accuracy
-        
-        avg_loss = running_loss / len(val_loader)
-        avg_nme = running_nme / len(val_loader)
-        avg_auc = running_auc / len(val_loader)
-        avg_failure_rate = running_failure_rate / len(val_loader)
-        avg_accuracy = running_accuracy / len(val_loader)
-        
-        return avg_loss, avg_nme, avg_auc, avg_failure_rate, avg_accuracy
-    
-    def train(self, train_loader, val_loader, epochs=200, save_dir='checkpoints'):
-        os.makedirs(save_dir, exist_ok=True)
-        best_val_accuracy = 0.0
-        
-        print(f"\nStarting training for {epochs} epochs...")
-        print(f"Device: {self.device}")
-        print(f"Student parameters: {sum(p.numel() for p in self.student.parameters()):,}")
-        
-        for epoch in range(epochs):
-            print(f"\nEpoch {epoch+1}/{epochs}")
-            print("-" * 70)
-            
-            train_loss, hard_loss, soft_loss, train_nme, train_auc, train_acc = self.train_epoch(train_loader)
-            self.history['train_loss'].append(train_loss)
-            self.history['train_hard_loss'].append(hard_loss)
-            self.history['train_soft_loss'].append(soft_loss)
-            self.history['train_nme'].append(train_nme)
-            self.history['train_auc'].append(train_auc)
-            self.history['train_accuracy'].append(train_acc)
-            
-            val_loss, val_nme, val_auc, val_failure_rate, val_acc = self.validate(val_loader)
-            self.history['val_loss'].append(val_loss)
-            self.history['val_nme'].append(val_nme)
-            self.history['val_auc'].append(val_auc)
-            self.history['val_failure_rate'].append(val_failure_rate)
-            self.history['val_accuracy'].append(val_acc)
-            
-            self.scheduler.step()
-            current_lr = self.optimizer.param_groups[0]['lr']
-            
-            print(f"\n{'='*70}")
-            print(f"EPOCH {epoch+1} RESULTS")
-            print(f"{'='*70}")
-            print(f"TRAINING:")
-            print(f"  Loss: {train_loss:.6f} (Hard: {hard_loss:.6f}, Soft: {soft_loss:.6f})")
-            print(f"  Accuracy: {train_acc:.2f}% | NME: {train_nme:.6f} | AUC@8%: {train_auc:.2f}%")
-            print(f"\nVALIDATION:")
-            print(f"  Loss: {val_loss:.6f}")
-            print(f"  Accuracy: {val_acc:.2f}% | NME: {val_nme:.6f} | AUC@8%: {val_auc:.2f}%")
-            print(f"  Failure@10%: {val_failure_rate:.2f}%")
-            print(f"\nLearning Rate: {current_lr:.6f}")
-            print(f"{'='*70}")
-            
-            if val_acc > best_val_accuracy:
-                best_val_accuracy = val_acc
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': self.student.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict(),
-                    'val_accuracy': val_acc,
-                    'val_nme': val_nme,
-                }, os.path.join(save_dir, 'best_model.pth'))
-                print(f"\nNEW BEST MODEL! Accuracy: {val_acc:.2f}% (NME: {val_nme:.6f})")
-            
-            if (epoch + 1) % 20 == 0:
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': self.student.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict(),
-                    'history': self.history,
-                }, os.path.join(save_dir, f'checkpoint_epoch_{epoch+1}.pth'))
-        
-        print("\nTraining completed!")
-        return self.history
-    
-    def plot_history(self, save_path='training_history.png'):
-        fig, axes = plt.subplots(3, 3, figsize=(20, 12))
-        
-        # Plot 1: Accuracy
-        axes[0, 0].plot(self.history['train_accuracy'], label='Train', linewidth=2.5, color='blue')
-        axes[0, 0].plot(self.history['val_accuracy'], label='Val', linewidth=2.5, color='red')
-        axes[0, 0].set_xlabel('Epoch', fontweight='bold')
-        axes[0, 0].set_ylabel('Accuracy (%)', fontweight='bold')
-        axes[0, 0].set_title('Landmark Accuracy (within 5px)', fontweight='bold', fontsize=14)
-        axes[0, 0].legend()
-        axes[0, 0].grid(True, alpha=0.3)
-        axes[0, 0].set_ylim([0, 100])
-        
-        # Plot 2: Loss
-        axes[0, 1].plot(self.history['train_loss'], label='Train', linewidth=2)
-        axes[0, 1].plot(self.history['val_loss'], label='Val', linewidth=2)
-        axes[0, 1].set_xlabel('Epoch')
-        axes[0, 1].set_ylabel('Loss')
-        axes[0, 1].set_title('Training and Validation Loss', fontweight='bold')
-        axes[0, 1].legend()
-        axes[0, 1].grid(True, alpha=0.3)
-        
-        # Plot 3: Hard vs Soft Loss
-        axes[0, 2].plot(self.history['train_hard_loss'], label='Hard Loss', linewidth=2)
-        axes[0, 2].plot(self.history['train_soft_loss'], label='Soft Loss', linewidth=2)
-        axes[0, 2].set_xlabel('Epoch')
-        axes[0, 2].set_ylabel('Loss')
-        axes[0, 2].set_title('Distillation Loss Components', fontweight='bold')
-        axes[0, 2].legend()
-        axes[0, 2].grid(True, alpha=0.3)
-        
-        # Plot 4: NME
-        axes[1, 0].plot(self.history['train_nme'], label='Train', linewidth=2)
-        axes[1, 0].plot(self.history['val_nme'], label='Val', linewidth=2)
-        axes[1, 0].set_xlabel('Epoch')
-        axes[1, 0].set_ylabel('NME')
-        axes[1, 0].set_title('Normalized Mean Error', fontweight='bold')
-        axes[1, 0].legend()
-        axes[1, 0].grid(True, alpha=0.3)
-        
-        # Plot 5: AUC
-        axes[1, 1].plot(self.history['train_auc'], label='Train', linewidth=2, color='green')
-        axes[1, 1].plot(self.history['val_auc'], label='Val', linewidth=2, color='darkgreen')
-        axes[1, 1].set_xlabel('Epoch')
-        axes[1, 1].set_ylabel('AUC (%)')
-        axes[1, 1].set_title('Detection Rate @ 8%', fontweight='bold')
-        axes[1, 1].legend()
-        axes[1, 1].grid(True, alpha=0.3)
-        axes[1, 1].set_ylim([0, 100])
-        
-        # Plot 6: Failure Rate
-        axes[1, 2].plot(self.history['val_failure_rate'], label='Failure Rate', linewidth=2, color='red')
-        axes[1, 2].set_xlabel('Epoch')
-        axes[1, 2].set_ylabel('Failure Rate (%)')
-        axes[1, 2].set_title('Validation Failure Rate @ 10%', fontweight='bold')
-        axes[1, 2].legend()
-        axes[1, 2].grid(True, alpha=0.3)
-        
-        # Plot 7: Accuracy Filled
-        axes[2, 0].fill_between(range(len(self.history['train_accuracy'])), 
-                                self.history['train_accuracy'], alpha=0.3, color='blue')
-        axes[2, 0].fill_between(range(len(self.history['val_accuracy'])), 
-                                self.history['val_accuracy'], alpha=0.3, color='red')
-        axes[2, 0].plot(self.history['train_accuracy'], linewidth=2, color='blue', label='Train')
-        axes[2, 0].plot(self.history['val_accuracy'], linewidth=2, color='red', label='Val')
-        axes[2, 0].set_xlabel('Epoch')
-        axes[2, 0].set_ylabel('Accuracy (%)')
-        axes[2, 0].set_title('Accuracy Progress', fontweight='bold')
-        axes[2, 0].legend()
-        axes[2, 0].grid(True, alpha=0.3)
-        axes[2, 0].set_ylim([0, 100])
-        
-        # Plot 8: Log Loss
-        axes[2, 1].plot(self.history['train_loss'], linewidth=2, label='Train')
-        axes[2, 1].plot(self.history['val_loss'], linewidth=2, label='Val')
-        axes[2, 1].set_xlabel('Epoch')
-        axes[2, 1].set_ylabel('Loss (log scale)')
-        axes[2, 1].set_title('Training Progress (Log Scale)', fontweight='bold')
-        axes[2, 1].set_yscale('log')
-        axes[2, 1].legend()
-        axes[2, 1].grid(True, alpha=0.3)
-        
-        # Plot 9: Summary Stats
-        axes[2, 2].axis('off')
-        summary = f"""
-FINAL TRAINING SUMMARY
-{'='*35}
+    epoch_loss = running_loss / len(val_loader)
+    epoch_nme = running_nme / len(val_loader)
+    epoch_acc = running_acc / len(val_loader)
+    return epoch_loss, epoch_nme, epoch_acc
 
-ACCURACY METRICS:
-  Best Val Acc:     {max(self.history['val_accuracy']):.2f}%
-  Final Val Acc:    {self.history['val_accuracy'][-1]:.2f}%
-  Best Train Acc:   {max(self.history['train_accuracy']):.2f}%
 
-ERROR METRICS:
-  Best Val NME:     {min(self.history['val_nme']):.6f}
-  Final Val NME:    {self.history['val_nme'][-1]:.6f}
-  Best AUC@8%:      {max(self.history['val_auc']):.2f}%
-  Final Fail@10%:   {self.history['val_failure_rate'][-1]:.2f}%
-
-TRAINING INFO:
-  Total Epochs:     {len(self.history['train_loss'])}
-  Best Loss:        {min(self.history['val_loss']):.6f}
-        """
-        axes[2, 2].text(0.1, 0.95, summary, transform=axes[2, 2].transAxes,
-                       fontsize=10, verticalalignment='top', fontfamily='monospace',
-                       bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
-        
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        print(f"\n{'='*70}")
-        print("FINAL TRAINING STATISTICS")
-        print(f"{'='*70}")
-        print(f"Best Validation Accuracy: {max(self.history['val_accuracy']):.2f}%")
-        print(f"Final Validation Accuracy: {self.history['val_accuracy'][-1]:.2f}%")
-        print(f"Best Validation NME: {min(self.history['val_nme']):.6f}")
-        print(f"Best Validation AUC@8%: {max(self.history['val_auc']):.2f}%")
-        print(f"Final Failure Rate@10%: {self.history['val_failure_rate'][-1]:.2f}%")
-        print(f"\nTraining history plot saved to: {save_path}")
-        print(f"{'='*70}")
-
-# ======================= Main Training Script =======================
 def main():
-    BATCH_SIZE = 16
-    EPOCHS = 200
-    DATA_ROOT = './archive'
+    # Configuration
+    CONFIG = {
+        'data_root': './300w',  # Update this to your 300W path
+        'img_size': 112,
+        'batch_size': 16,
+        'num_epochs': 200,
+        'learning_rate': 0.01,
+        'momentum': 0.9,
+        'weight_decay': 1e-4,
+        'num_workers': 4,
+        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+        'save_dir': 'checkpoints_landmarks',
+    }
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    os.makedirs(CONFIG['save_dir'], exist_ok=True)
+    
+    print("="*60)
+    print("300W Facial Landmark Training")
+    print("="*60)
+    print(f"Device: {CONFIG['device']}")
+    print(f"Image size: {CONFIG['img_size']}")
+    print(f"Batch size: {CONFIG['batch_size']}")
+    print(f"Optimizer: SGD (lr={CONFIG['learning_rate']}, momentum={CONFIG['momentum']})")
+    print(f"Loss: MSE (Mean Squared Error)")
+    print(f"Epochs: {CONFIG['num_epochs']}")
     print("="*60)
     
-    # Check dependencies
-    print("\nChecking dependencies...")
-    try:
-        import face_alignment
-        import cv2
-        print("face_alignment and OpenCV installed")
-    except ImportError as e:
-        print(f"Error: {e}")
-        print("\nInstall required packages:")
-        print("  pip install face-alignment opencv-python")
-        return
+    # Prepare datasets
+    train_transform = get_transforms(CONFIG['img_size'], augment=True)
+    val_transform = get_transforms(CONFIG['img_size'], augment=False)
     
-    # Check dataset
-    if not os.path.exists(DATA_ROOT):
-        print(f"Error: Dataset directory not found: {DATA_ROOT}")
-        return
-    
-    # Data transforms
-    transform = transforms.Compose([
-        transforms.Resize((112, 112)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    ])
-    
-    # Create datasets
-    print("\n" + "="*60)
-    print("Loading datasets with face_alignment landmark extraction...")
-    print("="*60)
-    
-    train_dataset = RAFDBLandmarkDataset(
-        DATA_ROOT, 
-        transform=transform, 
-        train=True,
-        device=device,
-        cache_landmarks=True
+    train_dataset = W300Dataset(
+        CONFIG['data_root'], 
+        split='train', 
+        transform=train_transform,
+        img_size=CONFIG['img_size']
+    )
+    val_dataset = W300Dataset(
+        CONFIG['data_root'], 
+        split='test', 
+        transform=val_transform,
+        img_size=CONFIG['img_size']
     )
     
-    val_dataset = RAFDBLandmarkDataset(
-        DATA_ROOT, 
-        transform=transform, 
-        train=False,
-        device=device,
-        cache_landmarks=True
-    )
+    print(f"Train dataset: {len(train_dataset)} images")
+    print(f"Val dataset: {len(val_dataset)} images")
     
-    print(f"\nDataset loaded:")
-    print(f"  Train samples: {len(train_dataset)}")
-    print(f"  Val samples: {len(val_dataset)}")
-    
-    if len(train_dataset) == 0 or len(val_dataset) == 0:
-        print("\nError: No valid samples with face detections!")
-        return
-    
-    # Create data loaders
-    num_workers = 0 if os.name == 'nt' else 4
+    # Data loaders - only use pin_memory if CUDA is available
+    use_pin_memory = CONFIG['device'] == 'cuda'
     
     train_loader = DataLoader(
-        train_dataset, 
-        batch_size=BATCH_SIZE, 
-        shuffle=True, 
-        num_workers=num_workers,
-        pin_memory=(device.type == 'cuda')
+        train_dataset,
+        batch_size=CONFIG['batch_size'],
+        shuffle=True,
+        num_workers=CONFIG['num_workers'],
+        pin_memory=use_pin_memory
     )
     val_loader = DataLoader(
-        val_dataset, 
-        batch_size=BATCH_SIZE, 
-        shuffle=False, 
-        num_workers=num_workers,
-        pin_memory=(device.type == 'cuda')
+        val_dataset,
+        batch_size=CONFIG['batch_size'],
+        shuffle=False,
+        num_workers=CONFIG['num_workers'],
+        pin_memory=use_pin_memory
     )
     
-    # Initialize models
-    print("\nInitializing models...")
-    student_model = MobileFaceNet(num_landmarks=68)
-    teacher_model = PFANetwork(num_landmarks=68)
+    # Create model
+    model = FAN(num_landmarks=68)
+    model = model.to(CONFIG['device'])
     
-    # Load pretrained teacher if available
-    teacher_checkpoint = 'pfa_pretrained.pth'
-    if os.path.exists(teacher_checkpoint):
-        print(f"Loading pretrained teacher from {teacher_checkpoint}")
-        teacher_model.load_state_dict(torch.load(teacher_checkpoint, map_location=device))
-    else:
-        print("Note: No pretrained teacher model found. Training from scratch.")
+    # MSE Loss
+    criterion = nn.MSELoss()
     
-    # Initialize trainer
-    trainer = FaceAlignmentTrainer(student_model, teacher_model, device=device)
+    # SGD Optimizer with momentum
+    optimizer = optim.SGD(
+        model.parameters(),
+        lr=CONFIG['learning_rate'],
+        momentum=CONFIG['momentum'],
+        weight_decay=CONFIG['weight_decay']
+    )
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
     
-    # Train
+    # Training loop
+    best_nme = float('inf')
+    train_losses, train_nmes, train_accs = [], [], []
+    val_losses, val_nmes, val_accs = [], [], []
+    
+    for epoch in range(CONFIG['num_epochs']):
+        print(f"\nEpoch {epoch+1}/{CONFIG['num_epochs']}")
+        print("-" * 60)
+        
+        # Train
+        train_loss, train_nme, train_acc = train_epoch(
+            model, train_loader, optimizer, criterion, CONFIG['device'], CONFIG['img_size']
+        )
+        train_losses.append(train_loss)
+        train_nmes.append(train_nme)
+        train_accs.append(train_acc)
+        
+        # Validate
+        val_loss, val_nme, val_acc = validate(
+            model, val_loader, criterion, CONFIG['device'], CONFIG['img_size']
+        )
+        val_losses.append(val_loss)
+        val_nmes.append(val_nme)
+        val_accs.append(val_acc)
+        
+        # Learning rate scheduling
+        scheduler.step(val_nme)
+        
+        print(f"\nEpoch {epoch+1} Summary:")
+        print(f"Train - Loss: {train_loss:.4f} | NME: {train_nme:.2f}% | Accuracy: {train_acc:.2f}%")
+        print(f"Val   - Loss: {val_loss:.4f} | NME: {val_nme:.2f}% | Accuracy: {val_acc:.2f}%")
+        print(f"Current LR: {optimizer.param_groups[0]['lr']:.6f}")
+        
+        # Save best model
+        if val_nme < best_nme:
+            best_nme = val_nme
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'nme': val_nme,
+                'accuracy': val_acc,
+            }, os.path.join(CONFIG['save_dir'], 'best_fan_model.pth'))
+            print(f"✓ Best model saved! NME: {val_nme:.2f}% | Accuracy: {val_acc:.2f}%")
+    
     print("\n" + "="*60)
-    print("Starting training with face_alignment landmarks (68 points)")
+    print(f"Training completed! Best NME: {best_nme:.2f}%")
     print("="*60)
-    
-    history = trainer.train(train_loader, val_loader, epochs=EPOCHS)
-    
-    # Plot training history
-    trainer.plot_history()
-    
-    print("\n" + "="*60)
-    print("Training completed successfully!")
-    print(f"Best model: checkpoints/best_model.pth")
-    print(f"Training history: training_history.png")
-    print("="*60)
+
 
 if __name__ == '__main__':
     main()
