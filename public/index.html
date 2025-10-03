@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Exam - User</title>
+    <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>EXAM</h1>
+        <div id="start-screen">
+            <label>Your Name: <input id="username" /></label>
+            <button id="startBtn">Start Exam</button>
+        </div>
+
+    <div id="exam-screen" style="display:none">
+        <div id="timer">Time Left: <span id="timeLeft">--</span>s</div>
+        <div id="questionArea"></div>
+        <div id="controls"></div>
+    </div>
+
+    <div id="result-screen" style="display: none;">
+        <h2>Exam Finished</h2>
+        <div id="summary"></div>
+    </div>
+    </div>
+
+    <script src="/js/user.js"></script>
+</body>    
+</html>

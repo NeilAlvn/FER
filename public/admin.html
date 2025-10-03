@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Exam - Admin</title>
+    <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+    <div class="admin-container">
+        <div class="left-panel">
+            <h3>Questions</h3>
+            <div id="questionList"></div>
+            <button id="addQuestion">Add Question</button>
+            <hr />
+            <label>Total Seconds For Exam: <input id="totalSeconds" type="number" min="1" /></label>
+            <button id="saveAll">Save All</button>
+            <hr />
+            <button id="refreshVideos">Refresh Video List</button>
+            <div id="videosTree"></div>
+        </div>
+
+        <div class="right-panel">
+            <h2>Admin Editor</h2>
+            <div id="editor"></div>
+        </div>
+    </div>
+    
+    <script src="/js/admin.js"></script>
+</body>
+</html>
