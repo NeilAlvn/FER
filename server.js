@@ -4,155 +4,152 @@ const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const favicon = require("serve-favicon");
+const favicon = require('serve-favicon');
+const session = require('express-session');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const uploadsDir = path.join(__dirname, "uploads");
+
+const QUESTIONS_FILE = path.join(__dirname, 'questions.json');
+const VIDEOS_DIR = path.join(__dirname, 'videos');
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json()); //needed for post json
-app.use(express.urlencoded({ extended: true }));
 app.use(favicon(path.join(__dirname, "public", "favicon.ico")));
 
-// store questions in a JSON file
-const QUESTIONS_FILE = path.join(__dirname, 'questions.json');
-const VIDEOS_DIR = path.join(__dirname, 'videos');
+//Simple session-based login
+app.use(
+  session({
+    secret: 'supersecretkey',
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
 if (!fs.existsSync(VIDEOS_DIR)) fs.mkdirSync(VIDEOS_DIR);
 
+// ------------------
+// Helper functions
+// ------------------
 function loadQuestions() {
-    if (!fs.existsSync(QUESTIONS_FILE)) return { totalSeconds: 60, questions: [] };
-    return JSON.parse(fs.readFileSync(QUESTIONS_FILE));
+  if (!fs.existsSync(QUESTIONS_FILE)) return { totalSeconds: 60, questions: [] };
+  return JSON.parse(fs.readFileSync(QUESTIONS_FILE));
 }
 
-function savedQuestions(data) {
-    fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(data, null, 2));
+function saveQuestions(data) {
+  fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(data, null, 2));
 }
 
-//simple admin auth (hardcoded credentials)
-app.post('/api/admin/login', (req, res) => {
-    const { username, password } = req.body;
-    if (username === 'Admin123' && password === 'examination3000') {
-        return res.json({ ok: true});
-    }
-    returnres.status(401).json({ ok: false, message: 'Invalid Credentials'});
+function sanitize(name) {
+  return name.replace(/[^a-z0-9\- _\.]/gi, '_');
+}
+
+// ------------------
+// Authentication routes
+// ------------------
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === 'admin' && password === 'exam3000') {
+    req.session.loggedIn = true;
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ ok: false, message: 'Invalid credentials' });
 });
 
-app.get('/api/questions', (req,res) => {
-    const data = req.body;
-    //basic validation
-    if (!data.questions || !Array.isArray(data.questions)) return res.status(200).json({ ok: false});
-    savedQuestions(data);
-    res.json({ ok: true});
+app.post('/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
 });
 
-//multer for handling file uploads
+// Protect /admin.html
+app.get('/admin.html', (req, res, next) => {
+  if (!req.session.loggedIn) {
+    return res.redirect('/login.html');
+  }
+  next();
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ------------------
+// API routes
+// ------------------
+
+// Get questions
+app.get('/api/questions', (req, res) => {
+  const data = loadQuestions();
+  res.json(data);
+});
+
+// Save questions
+app.post('/api/questions', (req, res) => {
+  const data = req.body;
+  if (!data.questions || !Array.isArray(data.questions))
+    return res.status(400).json({ ok: false, message: 'Invalid question format' });
+
+  saveQuestions(data);
+  res.json({ ok: true });
+});
+
+// ------------------
+// File Upload Handling
+// ------------------
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        //destination depends on fields in the request body
-        const { username, questionIndex, result } = req.body;
-        if (!username || !questionIndex || !result) return cb (new Error('Missing Fields'));
+  destination: function (req, file, cb) {
+    const { username } = req.body;
+    if (!username) return cb(new Error('Missing username field'));
 
-        const userDir = path.join(VIDEOS_DIR, sanitize(username));
-        const questionDir = path.join(userDir, `Question${questionIndex}`);
-        const resultDir = path.join(questionDir, result === 'Correct' ? 'Correct' : 'Wrong');
+    const userDir = path.join(VIDEOS_DIR, sanitize(username));
+    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
 
-        [userDir, questionDir, resultDir].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d); });
+    cb(null, userDir);
+  },
+  filename: function (req, file, cb) {
+    const { questionIndex, result } = req.body;
+    if (!questionIndex || !result) return cb(new Error('Missing fields'));
 
-        cb(null, resultDir);
-    },
-    filename: function (req, file, cb) {
-        const ts = Date.now();
-        const ext = path.extname(file.originalname) || '.web';
-        cb(null, `clip-${ts}${ext}`);
-    }
+    const label = result === 'Correct' ? 'right' : 'wrong';
+    const filename = `${label}${questionIndex}.mp4`;
+    cb(null, filename);
+  }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 app.post('/api/upload-video', upload.single('video'), (req, res) => {
-    //return the file path for admin to view
-    res.json({ ok: true, path: req.file.path.replace(__dirname + path.sep, '')});
+  if (!req.file){
+    return res.status(400).json({ ok: false, message: 'No File Uploaded'});
+  }
+
+  res.json({
+    ok: true,
+    path: `/videos/${sanitize(req.body.username)}/${req.file.filename}`
+  });
 });
+
+// ------------------
+// Videos list for admin
+// ------------------
 
 app.get('/api/videos/list', (req, res) => {
-    //returns a directory tree for /videos
-    function walk(dir) {
-        const items = [];
-        fs.readdirSync(dir).forEach(name => {
-            const p = path.join(dir, name);
-            const stat = fs.statSync(p);
-            if (stat.isDirectory()) items.push({ name, type: 'dir', children: walk(p)});
-            else items.push({ name, type: 'file', path: p.replace(__dirname + path.sep, '')});
-        });
-        return items;
-    }
-
-    if (!fs.existsSync(VIDEOS_DIR)) return res.json([]);
-    res.json(walk(VIDEOS_DIR));
-});
-
-//serve saved videos statically
-app.use('/videos', express.static(path.join(__dirname + path.sep, '')));
-
-//Temporary in-use memory store
-let examData = { questions: [], examDuration: 60 };
-
-//Save Quetions from admin
-app.post("/save-questions", (req, res) => {
-  if (!req.body.questions || req.body.questions.length === 0) {
-    return res.status(400).json({ message: "No questions provided" });
-  }
-
-  examData = req.body; // overwrite with new payload
-  console.log("Exam data updated:", examData);
-  res.json({ message: "Questions saved successfully!" });
-});
-
-// Serve questions to user
-app.get("/questions", (req, res) => {
-  if (!examData.questions || examData.questions.length === 0) {
-    return res.json({ message: "No questions set by admin." });
-  }
-  res.json(examData);
-});
-
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-
-//helper: sanitize file/folder names
-function sanitize(name){
-    return name.replace(/[^a-z0-9\- _\.]/gi, '_');
-}
-
-// List all saved videos as JSON
-app.get("/videos", (req, res) => {
-  if (!fs.existsSync(uploadsDir)) {
-    return res.json({ users: [] });
-  }
-
-  const users = fs.readdirSync(uploadsDir).map(userFolder => {
-    const userPath = path.join(uploadsDir, userFolder);
-    if (!fs.statSync(userPath).isDirectory()) return null;
-
-    const results = {};
-    ["Correct", "Wrong"].forEach(type => {
-      const typePath = path.join(userPath, type);
-      if (fs.existsSync(typePath)) {
-        results[type] = fs.readdirSync(typePath).map(file => `/uploads/${userFolder}/${type}/${file}`);
-      } else {
-        results[type] = [];
-      }
+  function walk(dir) {
+    const items = [];
+    fs.readdirSync(dir).forEach((name) => {
+      const p = path.join(dir, name);
+      const stat = fs.statSync(p);
+      if (stat.isDirectory()) items.push({ name, type: 'dir', children: walk(p) });
+      else items.push({ name, type: 'file', path: p.replace(__dirname + path.sep, '') });
     });
+    return items;
+  }
 
-    return { user: userFolder, results };
-  }).filter(Boolean);
-
-  res.json({ users });
+  if (!fs.existsSync(VIDEOS_DIR)) return res.json([]);
+  res.json(walk(VIDEOS_DIR));
 });
 
-// Make video files accessible
-app.use("/uploads", express.static(uploadsDir));
+app.use('/videos/', express.static(VIDEOS_DIR));
+
+// ------------------
+// Start server
+// ------------------
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

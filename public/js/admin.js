@@ -91,31 +91,32 @@ document.getElementById("saveAll").onclick = async () => {
 };
 
 // Refresh video list
+// Refresh video list
 document.getElementById("refreshVideos").onclick = async () => {
   try {
-    const res = await fetch("/videos");
+    const res = await fetch("/api/videos/list");
+    if (!res.ok) throw new Error("Failed to fetch video list");
     const data = await res.json();
 
     const tree = document.getElementById("videosTree");
     tree.innerHTML = "";
 
-    data.users.forEach(u => {
+    data.forEach(user => {
       const userDiv = document.createElement("div");
-      userDiv.innerHTML = `<h4>${u.user}</h4>`;
+      userDiv.innerHTML = `<h4>${user.name}</h4>`;
 
-      ["Correct", "Wrong"].forEach(type => {
-        const section = document.createElement("div");
-        section.innerHTML = `<strong>${type}</strong><br>`;
-        u.results[type].forEach(fileUrl => {
-          const link = document.createElement("a");
-          link.href = fileUrl;
-          link.textContent = fileUrl.split("/").pop();
-          link.target = "_blank";
-          section.appendChild(link);
-          section.appendChild(document.createElement("br"));
+      if (user.children && user.children.length > 0) {
+        user.children.forEach(file => {
+          if (file.type === "file") {
+            const link = document.createElement("a");
+            link.href = `/videos/${user.name}/${file.name}`;
+            link.textContent = file.name;
+            link.target = "_blank";
+            userDiv.appendChild(link);
+            userDiv.appendChild(document.createElement("br"));
+          }
         });
-        userDiv.appendChild(section);
-      });
+      }
 
       tree.appendChild(userDiv);
     });
@@ -124,6 +125,7 @@ document.getElementById("refreshVideos").onclick = async () => {
     alert("Failed to load videos");
   }
 };
+
 
 
 // Init with 10 questions
