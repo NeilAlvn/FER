@@ -7,11 +7,19 @@ const cors = require('cors');
 const favicon = require('serve-favicon');
 const session = require('express-session');
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-const QUESTIONS_FILE = path.join(__dirname, 'questions.json');
 const VIDEOS_DIR = path.join(__dirname, 'videos');
+
+const QUESTIONS_PATH = path.join(process.cwd(), 'questions.json');
+
+// Auto-create if missing
+if (!fs.existsSync(QUESTIONS_PATH)) {
+  fs.writeFileSync(QUESTIONS_PATH, JSON.stringify({ totalSeconds: 60, questions: [] }, null, 2));
+  console.log("✅ Created questions.json at:", QUESTIONS_PATH);
+}
+
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -32,14 +40,21 @@ if (!fs.existsSync(VIDEOS_DIR)) fs.mkdirSync(VIDEOS_DIR);
 // ------------------
 // Helper functions
 // ------------------
+
 function loadQuestions() {
   if (!fs.existsSync(QUESTIONS_FILE)) return { totalSeconds: 60, questions: [] };
   return JSON.parse(fs.readFileSync(QUESTIONS_FILE));
 }
 
 function saveQuestions(data) {
-  fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(data, null, 2));
+    console.log("Questions saved successfully to:", QUESTIONS_FILE);
+  } catch (err) {
+    console.error("Error writing to questions file:", err);
+  }
 }
+
 
 function sanitize(name) {
   return name.replace(/[^a-z0-9\- _\.]/gi, '_');
@@ -74,21 +89,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ------------------
 // API routes
 // ------------------
+app.use(express.json());
 
 // Get questions
 app.get('/api/questions', (req, res) => {
-  const data = loadQuestions();
-  res.json(data);
+  try {
+    const data = JSON.parse(fs.readFileSync(QUESTIONS_PATH, 'utf8'));
+    res.json(data);
+  } catch (err) {
+    res.json({ totalSeconds: 60, questions: [] });
+  }
 });
 
 // Save questions
 app.post('/api/questions', (req, res) => {
-  const data = req.body;
-  if (!data.questions || !Array.isArray(data.questions))
-    return res.status(400).json({ ok: false, message: 'Invalid question format' });
-
-  saveQuestions(data);
-  res.json({ ok: true });
+  try {
+    fs.writeFileSync(QUESTIONS_PATH, JSON.stringify(req.body, null, 2));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error saving questions:', err);
+    res.status(500).json({ ok: false });
+  }
 });
 
 // ------------------
@@ -147,7 +168,7 @@ app.get('/api/videos/list', (req, res) => {
   res.json(walk(VIDEOS_DIR));
 });
 
-app.use('/videos/', express.static(VIDEOS_DIR));
+app.use('/videos', express.static(VIDEOS_DIR));
 
 // ------------------
 // Start server

@@ -8,7 +8,7 @@
     const resultScreen = document.getElementById('result-screen');
     const summary = document.getElementById('summary');
 
-    let questionData = await (await fetch('/questions')).json();
+    let questionData = await (await fetch('/api/questions')).json();
     if (!questionData.questions || !questionData.questions.length) {
         alert('No Questions Set By Admin FUCK U.');
         return;
