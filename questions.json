@@ -1,12 +1,12 @@
 {
-  "totalSeconds": 15,
+  "totalSeconds": 60,
   "questions": [
     {
-      "text": "1+1",
+      "text": "1+12",
       "choices": [
         "1",
         "2",
-        "3",
+        "13",
         "4"
       ],
       "correctIndex": 0
@@ -92,7 +92,7 @@
       "correctIndex": 1
     },
     {
-      "text": "10+10",
+      "text": "20+20",
       "choices": [
         "10",
         "20",

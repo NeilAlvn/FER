@@ -7,7 +7,6 @@ const cors = require('cors');
 const favicon = require('serve-favicon');
 const session = require('express-session');
 
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 const VIDEOS_DIR = path.join(__dirname, 'videos');
@@ -85,7 +84,6 @@ app.get('/admin.html', (req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-
 // ------------------
 // API routes
 // ------------------
@@ -152,20 +150,25 @@ app.post('/api/upload-video', upload.single('video'), (req, res) => {
 // Videos list for admin
 // ------------------
 
-app.get('/api/videos/list', (req, res) => {
-  function walk(dir) {
-    const items = [];
-    fs.readdirSync(dir).forEach((name) => {
-      const p = path.join(dir, name);
-      const stat = fs.statSync(p);
-      if (stat.isDirectory()) items.push({ name, type: 'dir', children: walk(p) });
-      else items.push({ name, type: 'file', path: p.replace(__dirname + path.sep, '') });
-    });
-    return items;
-  }
+app.get("/api/videos", (req, res) => {
+  const videosRoot = path.join(__dirname, "videos");
 
-  if (!fs.existsSync(VIDEOS_DIR)) return res.json([]);
-  res.json(walk(VIDEOS_DIR));
+  fs.readdir(videosRoot, { withFileTypes: true }, (err, users) => {
+    if (err) return res.status(500).json({ error: "Failed to read videos directory" });
+
+    const result = {};
+
+    users.forEach(userDir => {
+      if (userDir.isDirectory()) {
+        const userPath = path.join(videosRoot, userDir.name);
+        const files = fs.readdirSync(userPath)
+          .filter(f => f.endsWith(".mp4"));
+        result[userDir.name] = files;
+      }
+    });
+
+    res.json(result);
+  })
 });
 
 app.use('/videos', express.static(VIDEOS_DIR));
@@ -173,4 +176,5 @@ app.use('/videos', express.static(VIDEOS_DIR));
 // ------------------
 // Start server
 // ------------------
+console.log("Serving static files from:", path.join(__dirname, "public"));
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

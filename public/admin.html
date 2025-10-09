@@ -116,12 +116,13 @@
     <div class="left-panel">
       <button id="refreshVideos">Refresh Video List</button>
       <div id="videosTree"></div>
+      <div id="videoList"></div>
       <div id="emotionList" class="emotion-list">
         <h4>Detected Emotions</h4>
         <ul id="emotions"></ul>
       </div>
     </div>
-
+  
     <!-- Right side: Editor -->
     <div class="right-panel">
       <h2>Admin Editor</h2>
@@ -148,7 +149,7 @@
 
         <video id="videoPlayer" width="600" controls></video>
 
-        <div id="videoControls">
+        <div id="controls">
             <button id="playPause">▶ Play</button>
             <button id="markSplit">Split Segment</button>
             <button id="undoSplit">↩ Undo Last Split</button>
@@ -180,7 +181,8 @@
     </div>
   </div>
 
-  <script src="/js/admin.js" defer></script>
+  <script type="module" src="/js/admin.js"></script>
+  <script type="module" src="/js/videoSegment.js"></script>
   <script>
     // Temporary right-click handler for showing emotion list
     document.addEventListener("contextmenu", (e) => {
