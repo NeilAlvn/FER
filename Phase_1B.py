@@ -257,12 +257,11 @@ class RAFDBLandmarkDataset(Dataset):
             # Left eye (42-47)
             [0.56, 0.42], [0.60, 0.40], [0.64, 0.40], [0.68, 0.42],
             [0.64, 0.43], [0.60, 0.43],
-            # Outer mouth (48-59)
+            # Outer mouth (48-59) - 12 points
             [0.38, 0.72], [0.41, 0.71], [0.44, 0.70], [0.47, 0.70], [0.50, 0.70],
             [0.53, 0.70], [0.56, 0.70], [0.59, 0.71], [0.62, 0.72],
-            [0.59, 0.76], [0.56, 0.77], [0.53, 0.77], [0.50, 0.77],
-            [0.47, 0.77], [0.44, 0.77], [0.41, 0.76],
-            # Inner mouth (60-67)
+            [0.59, 0.76], [0.50, 0.77], [0.41, 0.76],
+            # Inner mouth (60-67) - 8 points
             [0.41, 0.73], [0.44, 0.72], [0.47, 0.72], [0.50, 0.72],
             [0.53, 0.72], [0.56, 0.72], [0.59, 0.73], [0.50, 0.74],
         ], dtype=np.float32)
@@ -534,6 +533,7 @@ def main():
     # Prepare datasets
     train_dataset = RAFDBLandmarkDataset(
         CONFIG['data_root'],
+        landmark_dir='./landmarks_rafdb',
         split='train',
         transform=train_transform,
         img_size=CONFIG['img_size']
@@ -541,6 +541,7 @@ def main():
     
     val_dataset = RAFDBLandmarkDataset(
         CONFIG['data_root'],
+        landmark_dir='./landmarks_rafdb',
         split='test',
         transform=val_transform,
         img_size=CONFIG['img_size']
