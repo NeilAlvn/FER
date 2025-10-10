@@ -171,6 +171,27 @@ app.get("/api/videos", (req, res) => {
   })
 });
 
+app.post("/api/save-emotions", (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.folder || !data.video || !data.segments) {
+      return res.status(400).json({ ok: false, message: "Invalid data structure" });
+    }
+
+    const emotionsPath = path.join(__dirname, "videos", data.folder, "emotions.json");
+
+    fs.mkdirSync(path.dirname(emotionsPath), { recursive: true });
+    fs.writeFileSync(emotionsPath, JSON.stringify(data, null, 2));
+
+    console.log(`emotions.json saved to ${emotionsPath}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Error saving emotions.json:", err);
+    res.status(500).json({ ok: false });
+  }
+});
+
+
 app.use('/videos', express.static(VIDEOS_DIR));
 
 // ------------------

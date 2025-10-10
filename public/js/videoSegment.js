@@ -1,87 +1,145 @@
-export function initVideoSegments() {
-  console.log("videoSegment.js initialized");
-
+// public/js/videoSegment.js
+export function initVideoSegment(videoElement) {
   const video = document.getElementById("videoPlayer");
-  const playPause = document.getElementById("playPause");
-  const markSplit = document.getElementById("markSplit");
-  const undoSplit = document.getElementById("undoSplit");
+  const playPauseBtn = document.getElementById("playPause");
+  const splitBtn = document.getElementById("markSplit");
+  const undoBtn = document.getElementById("undoSplit");
   const timeline = document.getElementById("videoTimeline");
   const progressBar = document.getElementById("timelineProgress");
 
-  if (!video || !playPause || !markSplit || !undoSplit || !timeline || !progressBar) {
-    console.warn("Missing video segment controls.");
+  if (!video || !playPauseBtn || !splitBtn || !undoBtn || !timeline) {
+    console.warn("Video segment elements missing.");
     return;
   }
 
-  // Store all split points (in seconds)
-  let splits = [];
+  console.log("Video Segment Initialized Successfully");
 
-  /** --- PLAY / PAUSE --- */
-  playPause.addEventListener("click", () => {
-    if (video.paused) {
-      video.play();
-      playPause.textContent = "⏸ Pause";
-    } else {
+  const splits = []; // will store { start, end, emotion }
+  let isPlaying = false;
+  let lastSplit = 0;
+
+  //track video progress
+  video.addEventListener("timeupdate", () => {
+    if (!video.duration) return;
+    const percent = (video.currentTime / video.duration) * 100;
+    progressBar.style.width = `${percent}%`;
+  });
+
+  //play-pause
+  playPauseBtn.addEventListener("click", () => {
+    if (isPlaying) {
       video.pause();
-      playPause.textContent = "▶ Play";
+      playPauseBtn.textContent = "▶ Play";
+    } else {
+      video.play();
+      playPauseBtn.textContent = "⏸ Pause";
+    }
+    isPlaying = !isPlaying;
+  });
+
+  //split segment
+  splitBtn.addEventListener("click", () => {
+    const currentTime = Number(video.currentTime.toFixed(2));
+    const lastTime = Number(lastSplit);
+
+    if (currentTime <= lastTime) {
+      alert("Can't Split Before Last Segment!");
+      return;
+    }
+
+    const segment = {
+      start: lastTime,
+      end: currentTime,
+      emotion: "Neutral"
+    };
+
+    splits.push(segment);
+    lastSplit = currentTime;
+
+    renderSplits();
+    drawTimeLineMarkers();
+  });
+
+  //undo last split
+  undoBtn.addEventListener("click", () => {
+    if (splits.length > 0) {
+      const removed = splits.pop();
+
+      if (splits.length > 0) {
+        lastSplit = Numbe(splits[splits.length - 1].end);
+      } else {
+        lastSplit = 0;
+      }
+      renderSplits();
+      drawTimeLineMarkers();
     }
   });
 
-  /** --- UPDATE TIMELINE PROGRESS --- */
-  video.addEventListener("timeupdate", () => {
-    const progress = (video.currentTime / video.duration) * 100;
-    progressBar.style.width = `${progress}%`;
-  });
+  function renderSplits() {
+    let container = document.getElementById("splitList");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "splitList";
+      container.style.marginTop = "10px";
+      video.parentNode.appendChild(container);
+    }
 
-  /** --- SPLIT SEGMENT --- */
-  markSplit.addEventListener("click", () => {
-    if (!video.duration) return;
-    const currentTime = video.currentTime;
+    container.innerHTML = "";
 
-    splits.push(currentTime);
-    addTimelineMarker(currentTime);
-
-    console.log("Added split at", formatTime(currentTime));
-  });
-
-  /** --- UNDO LAST SPLIT --- */
-  undoSplit.addEventListener("click", () => {
-    if (splits.length === 0) return;
-    const last = splits.pop();
-    removeLastMarker();
-    console.log("Removed last split at", formatTime(last));
-  });
-
-  /** --- ADD MARKER ON TIMELINE --- */
-  function addTimelineMarker(time) {
-    const marker = document.createElement("div");
-    marker.className = "timeline-marker";
-    marker.style.position = "absolute";
-    marker.style.top = "0";
-    marker.style.width = "3px";
-    marker.style.height = "100%";
-    marker.style.background = "red";
-    marker.style.left = `${(time / video.duration) * 100}%`;
-    timeline.appendChild(marker);
+    splits.forEach((s, index) => {
+      const div = document.createElement("div");
+      div.className = "split-item";
+      div.style.marginBottom = "5px";
+      div.innerHTML = `
+        <span>Segment ${index + 1}: ${s.start}s → ${s.end}s</span>
+        <select id="emotion-${index}">
+          <option value="Surprise" ${s.emotion === "Surprise" ? "selected" : ""}>Surprise</option>
+          <option value="Fear" ${s.emotion === "Fear" ? "selected" : ""}>Fear</option>
+          <option value="Happiness" ${s.emotion === "Happiness" ? "selected" : ""}>Happiness</option>
+          <option value="Sadness" ${s.emotion === "Sadness" ? "selected" : ""}>Sadness</option>
+          <option value="Anger" ${s.emotion === "Anger" ? "selected" : ""}>Anger</option>
+          <option value="Neutral" ${s.emotion === "Neutral" ? "selected" : ""}>Neutral</option>
+        </select>
+      `;
+      div.querySelector("select").addEventListener("change", (e) => {
+        s.emotion = e.target.value;
+        drawTimeLineMarkers();
+      });
+      container.appendChild(div);
+    });
   }
 
-  /** --- REMOVE LAST MARKER --- */
-  function removeLastMarker() {
-    const markers = timeline.querySelectorAll(".timeline-marker");
-    if (markers.length > 0) markers[markers.length - 1].remove();
+  function drawTimeLineMarkers() {
+    timeline.querySelectorAll(".segment-marker").forEach(el => el.remove());
+
+    const duration = video.duration || 1;
+    const emotionColors = {
+      Surprise: "rgba(255, 165, 0, 0.6)",
+      Fear: "rgba(138, 43, 226, 0.6)",
+      Happiness: "rgba(0, 255, 0, 0.6)",
+      Sadness: "rgba(0, 191, 255, 0.6)",
+      Anger: "rgba(255, 0, 0, 0.6)",
+      Neutral: "rgba(128, 128, 128, 0.5)"
+    };
+
+    splits.forEach((s) => {
+      const startPercent = (s.start / duration) * 100;
+      const endPercent = (s.end / duration) * 100;
+
+      const marker = document.createElement("div");
+      marker.className = "segment-marker";
+      marker.style.position = "absolute";
+      marker.style.left = `${startPercent}%`;
+      marker.style.width = `${endPercent - startPercent}%`;
+      marker.style.height = "100%";
+      marker.style.top = "0";
+      marker.style.background = emotionColors[s.emotion] || "rgba(0,0,0,0.3)";
+      marker.style.borderRight = "1px solid #000";
+
+      timeline.appendChild(marker);
+    });
   }
 
-  /** --- HELPER --- */
-  function formatTime(seconds) {
-    const m = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = Math.floor(seconds % 60)
-      .toString()
-      .padStart(2, "0");
-    return `${m}:${s}`;
-  }
-
-  // Debugging helper (optional)
-  window.getSplits = () => splits;
+  // Exported reference for generateJson.js
+  window.getVideoSplits = () => splits;
 }

@@ -1,7 +1,7 @@
 import { initVideoControls } from './videosControls.js';
 import { initEmotions } from './emotion.js';
 import { initQuestionEditor } from './questionEditor.js';
-import { initVideoSegments } from './videoSegment.js';
+import { initVideoSegment } from './videoSegment.js';
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,5 +9,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initVideoControls();
   initEmotions();
   initQuestionEditor();
-  initVideoSegments();
+  initVideoSegment();
 });
