@@ -1,0 +1,51 @@
+{
+  "joshua_wrong11.mp4": {
+    "video": "wrong11.mp4",
+    "folder": "joshua",
+    "totalDuration": "185.82",
+    "segments": [
+      {
+        "start": "0.00",
+        "end": "4.20",
+        "emotion": "Surprise"
+      },
+      {
+        "start": "4.20",
+        "end": "32.52",
+        "emotion": "Fear"
+      },
+      {
+        "start": "32.52",
+        "end": "71.41",
+        "emotion": "Happiness"
+      },
+      {
+        "start": "71.41",
+        "end": "116.68",
+        "emotion": "Sadness"
+      },
+      {
+        "start": "116.68",
+        "end": "153.13",
+        "emotion": "Anger"
+      },
+      {
+        "start": "153.13",
+        "end": "185.82",
+        "emotion": "Neutral"
+      }
+    ]
+  },
+  "joshua_wrong1.mp4": {
+    "video": "wrong1.mp4",
+    "folder": "joshua",
+    "totalDuration": "1.39",
+    "segments": [
+      {
+        "start": "0.00",
+        "end": "1.00",
+        "emotion": "Fear"
+      }
+    ]
+  }
+}

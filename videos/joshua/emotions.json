@@ -1,0 +1,27 @@
+{
+  "video": "wrong11.mp4",
+  "folder": "joshua",
+  "totalDuration": "185.82",
+  "segments": [
+    {
+      "start": 0,
+      "end": 32.7,
+      "emotion": "Sadness"
+    },
+    {
+      "start": 32.7,
+      "end": 102.7,
+      "emotion": "Fear"
+    },
+    {
+      "start": 102.7,
+      "end": 157.08,
+      "emotion": "Neutral"
+    },
+    {
+      "start": 157.08,
+      "end": 185.34,
+      "emotion": "Happiness"
+    }
+  ]
+}

@@ -40,6 +40,11 @@ export function initVideoControls() {
             const videoPath = `/videos/${username}/${video}`;
             videoPlayer.src = videoPath;
             videoPlayer.play();
+            
+            // Reset video segments when a new video is loaded
+            if (window.resetVideoSegments) {
+              window.resetVideoSegments();
+            }
           });
           item.appendChild(btn);
           list.appendChild(item);

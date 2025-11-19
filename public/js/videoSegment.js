@@ -14,9 +14,58 @@ export function initVideoSegment(videoElement) {
 
   console.log("Video Segment Initialized Successfully");
 
-  const splits = []; // will store { start, end, emotion }
+  let splits = []; // will store { start, end, emotion }
   let isPlaying = false;
   let lastSplit = 0;
+  let currentVideoSrc = "";
+
+  // Reset function to clear all segments and markers
+  function resetVideoSegments() {
+    splits = [];
+    lastSplit = 0;
+    isPlaying = false;
+    
+    // Clear timeline markers
+    timeline.querySelectorAll(".segment-marker").forEach(el => el.remove());
+    
+    // Clear split list
+    const container = document.getElementById("splitList");
+    if (container) {
+      container.innerHTML = "";
+    }
+    
+    // Reset play button
+    playPauseBtn.textContent = "Play";
+    
+    // Reset progress bar
+    progressBar.style.width = "0%";
+    
+    console.log("Video segments reset for new video");
+  }
+
+  // Detect when video source changes and reset segments
+  video.addEventListener("loadstart", () => {
+    if (video.src && video.src !== currentVideoSrc) {
+      currentVideoSrc = video.src;
+      resetVideoSegments();
+    }
+  });
+
+  // Also reset when src attribute changes (for immediate detection)
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+        if (video.src && video.src !== currentVideoSrc) {
+          currentVideoSrc = video.src;
+          resetVideoSegments();
+        }
+      }
+    });
+  });
+  observer.observe(video, { attributes: true, attributeFilter: ['src'] });
+
+  // Make reset function globally available
+  window.resetVideoSegments = resetVideoSegments;
 
   //track video progress
   video.addEventListener("timeupdate", () => {
@@ -29,10 +78,10 @@ export function initVideoSegment(videoElement) {
   playPauseBtn.addEventListener("click", () => {
     if (isPlaying) {
       video.pause();
-      playPauseBtn.textContent = "▶ Play";
+      playPauseBtn.textContent = "Play";
     } else {
       video.play();
-      playPauseBtn.textContent = "⏸ Pause";
+      playPauseBtn.textContent = "Pause";
     }
     isPlaying = !isPlaying;
   });
@@ -66,7 +115,7 @@ export function initVideoSegment(videoElement) {
       const removed = splits.pop();
 
       if (splits.length > 0) {
-        lastSplit = Numbe(splits[splits.length - 1].end);
+        lastSplit = Number(splits[splits.length - 1].end);
       } else {
         lastSplit = 0;
       }
@@ -91,7 +140,7 @@ export function initVideoSegment(videoElement) {
       div.className = "split-item";
       div.style.marginBottom = "5px";
       div.innerHTML = `
-        <span>Segment ${index + 1}: ${s.start}s → ${s.end}s</span>
+        <span>Segment ${index + 1}: ${s.start}s - ${s.end}s</span>
         <select id="emotion-${index}">
           <option value="Surprise" ${s.emotion === "Surprise" ? "selected" : ""}>Surprise</option>
           <option value="Fear" ${s.emotion === "Fear" ? "selected" : ""}>Fear</option>

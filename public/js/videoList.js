@@ -25,6 +25,11 @@ function initVideoList() {
           document.querySelectorAll("#videosTree a").forEach((el) => el.classList.remove("active"));
           a.classList.add("active");
           videoPlayer.src = `/uploads/${video}`;
+          
+          // Reset video segments when a new video is loaded
+          if (window.resetVideoSegments) {
+            window.resetVideoSegments();
+          }
         });
 
         videosTree.appendChild(a);

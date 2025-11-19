@@ -1,5 +1,5 @@
 // public/js/generateJson.js
-export function initGenerateAndSave(videoElement, segmentRef) {
+export function initGenerateAndSave() {
   const generateBtn = document.getElementById("generateJson");
   const saveBtn = document.getElementById("saveEdits");
 
@@ -9,16 +9,18 @@ export function initGenerateAndSave(videoElement, segmentRef) {
   }
 
   generateBtn.addEventListener("click", () => {
-    const splits = segmentRef.splits || [];
-    const video = videoElement;
+    const video = document.getElementById("videoPlayer");
+    
+    // Get splits from the global function set by videoSegment.js
+    const splits = window.getVideoSplits ? window.getVideoSplits() : [];
 
     if (!video || !video.duration || !video.currentSrc) {
-      alert("⚠️ No video loaded.");
+      alert("No video loaded.");
       return;
     }
 
     if (splits.length === 0) {
-      alert("⚠️ No segments to generate.");
+      alert("No segments to generate.");
       return;
     }
 
@@ -30,21 +32,21 @@ export function initGenerateAndSave(videoElement, segmentRef) {
       folder: folderName,
       totalDuration: video.duration.toFixed(2),
       segments: splits.map((s) => ({
-        start: s.start,
-        end: s.end,
+        start: s.start.toFixed(2),
+        end: s.end.toFixed(2),
         emotion: s.emotion || "Neutral",
       })),
     };
 
     console.log("Generated JSON:", data);
-    alert("JSON generated successfully! (Check console)");
+    alert("JSON generated successfully! Ready to save to extracted folder.");
 
     window.latestSegments = data;
   });
 
   saveBtn.addEventListener("click", async () => {
     if (!window.latestSegments) {
-      alert("⚠️ Please generate JSON first.");
+      alert("Please generate JSON first.");
       return;
     }
 
@@ -57,13 +59,13 @@ export function initGenerateAndSave(videoElement, segmentRef) {
 
       const result = await res.json();
       if (result.ok) {
-        alert(`emotions.json saved successfully to exam/${window.latestSegments.folder}/`);
+        alert(`Emotions data saved successfully to extracted/emotions.json`);
       } else {
-        alert("Failed to save emotions.json.");
+        alert("Failed to save emotions data.");
       }
     } catch (err) {
-      console.error("Error saving emotions.json:", err);
-      alert("Error saving emotions.json.");
+      console.error("Error saving emotions data:", err);
+      alert("Error saving emotions data.");
     }
   });
 }

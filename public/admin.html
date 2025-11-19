@@ -103,6 +103,23 @@
         font-weight: bold;
         color: #0d6efd;
     }
+    .time-field {
+      margin-bottom: 10px;
+    }
+    .time-field label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .time-field input {
+      width: 100px;
+      padding: 5px;
+    }
+    .question-summary {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -134,9 +151,13 @@
       </div>
 
       <div class="section">
-        <h3>Total Seconds For Exam</h3>
-        <input id="totalSeconds" type="number" min="1" placeholder="Enter total seconds" />
-        <button id="saveAll">Save All</button>
+        <h3>Exam Summary</h3>
+        <div class="question-summary">
+          <p>Individual question timing is now enabled.</p>
+          <p>Set the time limit for each question individually.</p>
+          <p>The total exam time will be calculated automatically.</p>
+        </div>
+        <button id="saveAll">Save All Questions</button>
       </div>
 
       <div class="section">

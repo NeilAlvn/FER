@@ -10,15 +10,20 @@ const session = require('express-session');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const VIDEOS_DIR = path.join(__dirname, 'videos');
+const EXTRACTED_DIR = path.join(__dirname, 'extracted');
 
 const QUESTIONS_PATH = path.join(process.cwd(), 'questions.json');
 
-// Auto-create if missing
+// Auto-create directories if missing
 if (!fs.existsSync(QUESTIONS_PATH)) {
   fs.writeFileSync(QUESTIONS_PATH, JSON.stringify({ totalSeconds: 60, questions: [] }, null, 2));
-  console.log("✅ Created questions.json at:", QUESTIONS_PATH);
+  console.log("Created questions.json at:", QUESTIONS_PATH);
 }
 
+if (!fs.existsSync(EXTRACTED_DIR)) {
+  fs.mkdirSync(EXTRACTED_DIR, { recursive: true });
+  console.log("Created extracted directory at:", EXTRACTED_DIR);
+}
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -53,7 +58,6 @@ function saveQuestions(data) {
     console.error("Error writing to questions file:", err);
   }
 }
-
 
 function sanitize(name) {
   return name.replace(/[^a-z0-9\- _\.]/gi, '_');
@@ -171,28 +175,74 @@ app.get("/api/videos", (req, res) => {
   })
 });
 
+// ------------------
+// Enhanced Emotions Save API - Saves to extracted/emotions.json with merged structure
+// ------------------
 app.post("/api/save-emotions", (req, res) => {
   try {
-    const data = req.body;
-    if (!data.folder || !data.video || !data.segments) {
+    const newData = req.body;
+    if (!newData.folder || !newData.video || !newData.segments) {
       return res.status(400).json({ ok: false, message: "Invalid data structure" });
     }
 
-    const emotionsPath = path.join(__dirname, "videos", data.folder, "emotions.json");
+    const emotionsPath = path.join(EXTRACTED_DIR, "emotions.json");
+    let existingData = {};
 
-    fs.mkdirSync(path.dirname(emotionsPath), { recursive: true });
-    fs.writeFileSync(emotionsPath, JSON.stringify(data, null, 2));
+    // Load existing data if file exists
+    if (fs.existsSync(emotionsPath)) {
+      try {
+        const fileContent = fs.readFileSync(emotionsPath, 'utf8');
+        existingData = JSON.parse(fileContent);
+      } catch (err) {
+        console.warn("Could not parse existing emotions.json, starting fresh:", err.message);
+        existingData = {};
+      }
+    }
 
-    console.log(`emotions.json saved to ${emotionsPath}`);
+    // Create a unique key for this video entry
+    const videoKey = `${newData.folder}_${newData.video}`;
+    
+    // Add or update the entry for this video
+    existingData[videoKey] = {
+      video: newData.video,
+      folder: newData.folder,
+      totalDuration: newData.totalDuration,
+      segments: newData.segments
+    };
+
+    // Save the merged data
+    fs.writeFileSync(emotionsPath, JSON.stringify(existingData, null, 2));
+
+    console.log(`Emotions data merged and saved to ${emotionsPath}`);
+    console.log(`Video key: ${videoKey}`);
     res.json({ ok: true });
   } catch (err) {
     console.error("Error saving emotions.json:", err);
-    res.status(500).json({ ok: false });
+    res.status(500).json({ ok: false, message: "Server error while saving emotions data" });
   }
 });
 
+// ------------------
+// API to get extracted emotions data
+// ------------------
+app.get("/api/extracted-emotions", (req, res) => {
+  try {
+    const emotionsPath = path.join(EXTRACTED_DIR, "emotions.json");
+    
+    if (!fs.existsSync(emotionsPath)) {
+      return res.json({});
+    }
+
+    const data = JSON.parse(fs.readFileSync(emotionsPath, 'utf8'));
+    res.json(data);
+  } catch (err) {
+    console.error("Error reading extracted emotions:", err);
+    res.status(500).json({ error: "Failed to read extracted emotions data" });
+  }
+});
 
 app.use('/videos', express.static(VIDEOS_DIR));
+app.use('/extracted', express.static(EXTRACTED_DIR));
 
 // ------------------
 // Start server

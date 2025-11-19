@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Website - User Manual</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            background: #1e90ff;
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .user-section {
+            border-color: #28a745;
+            background: #f8fff8;
+        }
+        .admin-section {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+        .setup-section {
+            border-color: #ffc107;
+            background: #fffdf0;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 25px;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-left: 4px solid #f39c12;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .important {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .toc {
+            background: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .toc a {
+            text-decoration: none;
+            color: #1e90ff;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        .credential-box {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Exam Website User Manual</h1>
+        <p>Complete Guide for Students and Administrators</p>
+    </div>
+
+    <div class="toc">
+        <h3>Table of Contents</h3>
+        <ul>
+            <li><a href="#setup">System Setup & Installation</a></li>
+            <li><a href="#user-guide">Student Guide</a></li>
+            <li><a href="#admin-guide">Administrator Guide</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+            <li><a href="#technical">Technical Information</a></li>
+        </ul>
+    </div>
+
+    <section id="setup" class="section setup-section">
+        <h2>System Setup & Installation</h2>
+        
+        <h3>Prerequisites</h3>
+        <ul>
+            <li>Node.js (version 16 or higher)</li>
+            <li>Modern web browser (Chrome, Firefox, Safari, Edge)</li>
+            <li>Webcam and microphone access</li>
+        </ul>
+
+        <div class="step">
+            <h4>Step 1: Install Dependencies</h4>
+            <div class="code">npm install</div>
+        </div>
+
+        <div class="step">
+            <h4>Step 2: Start the Server</h4>
+            <div class="code">npm start</div>
+            <p>The server will start on <strong>http://localhost:3000</strong></p>
+        </div>
+
+        <div class="step">
+            <h4>Step 3: Access the Website</h4>
+            <ul>
+                <li><strong>Student Exam:</strong> http://localhost:3000</li>
+                <li><strong>Admin Panel:</strong> http://localhost:3000/admin.html</li>
+                <li><strong>Admin Login:</strong> http://localhost:3000/login.html</li>
+            </ul>
+        </div>
+
+        <div class="credential-box">
+            <h4>Default Admin Credentials</h4>
+            <p>Username: <strong>admin</strong></p>
+            <p>Password: <strong>exam3000</strong></p>
+        </div>
+    </section>
+
+    <section id="user-guide" class="section user-section">
+        <h2>Student Guide</h2>
+
+        <h3>Taking an Exam</h3>
+
+        <div class="step">
+            <h4>Step 1: Start the Exam</h4>
+            <ul>
+                <li>Navigate to the main website (http://localhost:3000)</li>
+                <li>Enter your full name in the "Your Name" field</li>
+                <li>Click "Start Exam"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h4>Step 2: Camera Permission</h4>
+            <ul>
+                <li>Allow camera and microphone access when prompted</li>
+                <li>Your video will be recorded during each question</li>
+                <li>Ensure good lighting and clear camera view</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h4>Step 3: Answer Questions</h4>
+            <ul>
+                <li>Read each question carefully</li>
+                <li>Each question has a time limit (displayed at the top)</li>
+                <li>Click on your chosen answer (1, 2, 3, or 4)</li>
+                <li>The timer shows remaining time for the current question</li>
+                <li>Questions advance automatically when time expires</li>
+            </ul>
+        </div>
+
+        <div class="important">
+            <h4>Important Notes for Students</h4>
+            <ul>
+                <li>Once you select an answer, you cannot go back</li>
+                <li>Video recording starts automatically for each question</li>
+                <li>If time runs out, the question is marked as incorrect</li>
+                <li>Stay within camera view throughout the exam</li>
+                <li>Ensure stable internet connection</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h4>Technical Requirements</h4>
+            <ul>
+                <li>Working webcam and microphone</li>
+                <li>Modern web browser with WebRTC support</li>
+                <li>Stable internet connection</li>
+                <li>Allow browser permissions for camera/microphone</li>
+            </ul>
+        </div>
+
+        <h3>After Completion</h3>
+        <ul>
+            <li>A completion screen will show your exam summary</li>
+            <li>All video recordings are automatically uploaded</li>
+            <li>Contact the administrator for results</li>
+        </ul>
+    </section>
+
+    <section id="admin-guide" class="section admin-section">
+        <h2>Administrator Guide</h2>
+
+        <h3>Accessing Admin Panel</h3>
+
+        <div class="step">
+            <h4>Step 1: Login</h4>
+            <ul>
+                <li>Go to http://localhost:3000/login.html</li>
+                <li>Enter admin credentials (admin/exam3000)</li>
+                <li>Click "Login" to access the admin panel</li>
+            </ul>
+        </div>
+
+        <h3>Question Management</h3>
+
+        <div class="step">
+            <h4>Creating Questions</h4>
+            <ul>
+                <li>Use the "Questions" section in the admin panel</li>
+                <li>Click "Add Question" to create new questions</li>
+                <li>Fill in the question text</li>
+                <li>Add 4 multiple choice options</li>
+                <li>Select the correct answer by clicking the radio button</li>
+                <li>Set time limit for each question (in seconds)</li>
+                <li>Click "Save All" to save changes</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h4>Editing Questions</h4>
+            <ul>
+                <li>Navigate between questions using Q1, Q2, Q3... buttons</li>
+                <li>Modify question text and choices as needed</li>
+                <li>Adjust time limits for individual questions</li>
+                <li>Remove questions using the "Remove Question" button</li>
+                <li>Always save changes before switching questions</li>
+            </ul>
+        </div>
+
+        <h3>Video Management</h3>
+
+        <div class="step">
+            <h4>Viewing Student Videos</h4>
+            <ul>
+                <li>Videos are organized by student name in the left panel</li>
+                <li>Click on a student's name to expand their video list</li>
+                <li>Videos are named: "right[#].mp4" for correct answers, "wrong[#].mp4" for incorrect</li>
+                <li>Click on any video to preview it in the video player</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h4>Video Segmentation (Advanced Feature)</h4>
+            <ul>
+                <li>Load a video in the player</li>
+                <li>Use "Split Segment" to mark emotion changes</li>
+                <li>Assign emotions (Surprise, Fear, Happiness, Sadness, Anger, Neutral) to each segment</li>
+                <li>Use "Generate JSON" to create emotion data</li>
+                <li>Click "Save" to store the emotion analysis</li>
+            </ul>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>Question Features</h4>
+                <ul>
+                    <li>Multiple choice (4 options)</li>
+                    <li>Individual time limits</li>
+                    <li>Question navigation</li>
+                    <li>Bulk save/load</li>
+                    <li>JSON export</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>Video Features</h4>
+                <ul>
+                    <li>Automatic recording</li>
+                    <li>User organization</li>
+                    <li>Video preview</li>
+                    <li>Emotion analysis</li>
+                    <li>Segment marking</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>Admin Features</h4>
+                <ul>
+                    <li>Secure login system</li>
+                    <li>Question management</li>
+                    <li>Video review tools</li>
+                    <li>Data export</li>
+                    <li>Session management</li>
+                </ul>
+            </div>
+        </div>
+
+        <h3>Data Management</h3>
+
+        <div class="step">
+            <h4>Question Data</h4>
+            <ul>
+                <li>Questions are stored in "questions.json"</li>
+                <li>Total exam time is calculated automatically</li>
+                <li>Use "Generate JSON" to export question data</li>
+                <li>Backup question files regularly</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h4>Video Storage</h4>
+            <ul>
+                <li>Videos are stored in "videos/[student-name]/" folders</li>
+                <li>Emotion data is saved in "extracted/emotions.json"</li>
+                <li>Video files are in WebM format</li>
+                <li>Ensure sufficient disk space for video storage</li>
+            </ul>
+        </div>
+
+        <div class="important">
+            <h4>Security Notes</h4>
+            <ul>
+                <li>Change default admin password in production</li>
+                <li>Restrict access to the admin panel</li>
+                <li>Regularly backup question and video data</li>
+                <li>Monitor disk space usage</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="troubleshooting" class="section">
+        <h2>Troubleshooting</h2>
+
+        <h3>Common Student Issues</h3>
+
+        <div class="warning">
+            <h4>Camera/Microphone Not Working</h4>
+            <ul>
+                <li>Check browser permissions for camera/microphone</li>
+                <li>Ensure no other applications are using the camera</li>
+                <li>Try refreshing the page and allowing permissions again</li>
+                <li>Test with a different browser</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h4>Video Not Recording</h4>
+            <ul>
+                <li>Check internet connection stability</li>
+                <li>Verify camera permissions are granted</li>
+                <li>Clear browser cache and cookies</li>
+                <li>Disable browser extensions that might interfere</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h4>Exam Won't Start</h4>
+            <ul>
+                <li>Ensure you've entered your name</li>
+                <li>Check that questions are configured by admin</li>
+                <li>Verify server is running</li>
+                <li>Try accessing from the correct URL</li>
+            </ul>
+        </div>
+
+        <h3>Common Admin Issues</h3>
+
+        <div class="warning">
+            <h4>Cannot Access Admin Panel</h4>
+            <ul>
+                <li>Verify you're using the correct login credentials</li>
+                <li>Check that the server is running</li>
+                <li>Clear browser cache and try again</li>
+                <li>Ensure you're accessing /login.html first</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h4>Videos Not Showing</h4>
+            <ul>
+                <li>Check that students have completed exams</li>
+                <li>Verify video files exist in the videos folder</li>
+                <li>Click "Refresh Video List" button</li>
+                <li>Check server console for error messages</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h4>Questions Not Saving</h4>
+            <ul>
+                <li>Ensure write permissions for the questions.json file</li>
+                <li>Check available disk space</li>
+                <li>Verify network connection</li>
+                <li>Look for error messages in browser console</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="technical" class="section">
+        <h2>Technical Information</h2>
+
+        <h3>System Architecture</h3>
+        <ul>
+            <li><strong>Backend:</strong> Node.js with Express framework</li>
+            <li><strong>Frontend:</strong> HTML, CSS, JavaScript (ES6 modules)</li>
+            <li><strong>Video Recording:</strong> WebRTC MediaRecorder API</li>
+            <li><strong>File Storage:</strong> Local filesystem with organized folder structure</li>
+            <li><strong>Session Management:</strong> Express sessions with memory store</li>
+        </ul>
+
+        <h3>File Structure</h3>
+        <div class="code">
+project/
+├── server.js          # Main server file
+├── package.json       # Dependencies
+├── questions.json     # Question database
+├── public/            # Static web files
+│   ├── index.html     # Student exam page
+│   ├── admin.html     # Admin panel
+│   ├── login.html     # Admin login
+│   ├── style.css      # Styling
+│   └── js/            # JavaScript modules
+├── videos/            # Student video recordings
+│   └── [student-name]/# Individual student folders
+└── extracted/         # Emotion analysis data
+    └── emotions.json  # Emotion segments data
+        </div>
+
+        <h3>API Endpoints</h3>
+        <ul>
+            <li><strong>GET /api/questions</strong> - Fetch exam questions</li>
+            <li><strong>POST /api/questions</strong> - Save questions (admin)</li>
+            <li><strong>POST /api/upload-video</strong> - Upload student video</li>
+            <li><strong>GET /api/videos</strong> - List all videos (admin)</li>
+            <li><strong>POST /api/save-emotions</strong> - Save emotion analysis</li>
+            <li><strong>POST /login</strong> - Admin authentication</li>
+            <li><strong>POST /logout</strong> - End admin session</li>
+        </ul>
+
+        <h3>Browser Compatibility</h3>
+        <ul>
+            <li>Chrome 60+ (Recommended)</li>
+            <li>Firefox 55+</li>
+            <li>Safari 11+</li>
+            <li>Edge 79+</li>
+            <li>Requires WebRTC support for video recording</li>
+        </ul>
+
+        <h3>Performance Notes</h3>
+        <ul>
+            <li>Video files are stored locally, ensure adequate disk space</li>
+            <li>Large video files may affect upload performance</li>
+            <li>Consider implementing video compression for production use</li>
+            <li>Monitor server resources with multiple concurrent users</li>
+        </ul>
+
+        <div class="important">
+            <h4>Production Deployment</h4>
+            <ul>
+                <li>Change default admin credentials</li>
+                <li>Use HTTPS in production environment</li>
+                <li>Configure proper file permissions</li>
+                <li>Set up regular data backups</li>
+                <li>Monitor disk space and server performance</li>
+                <li>Consider using a database for question storage</li>
+            </ul>
+        </div>
+    </section>
+
+    <footer style="text-align: center; margin-top: 50px; padding: 20px; border-top: 2px solid #ddd;">
+        <p><strong>Exam Website User Manual</strong> - Complete guide for students and administrators</p>
+        <p>For technical support, refer to the troubleshooting section or check server logs for detailed error information.</p>
+    </footer>
+</body>
+</html>

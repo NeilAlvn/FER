@@ -1,105 +1,555 @@
 {
-  "totalSeconds": 60,
+  "totalSeconds": 3000,
   "questions": [
     {
-      "text": "1+12",
+      "text": "What is the value of the digit 6 in 56,783?",
       "choices": [
-        "1",
-        "2",
-        "13",
-        "4"
+        "6",
+        "60",
+        "600",
+        "6,000"
       ],
-      "correctIndex": 0
+      "correctIndex": 0,
+      "timeSeconds": 60
     },
     {
-      "text": "2+2",
+      "text": "Which of the following is written correctly in words?",
       "choices": [
-        "2",
+        "3,405 – Three thousand forty-five",
+        "3,405 – Three thousand four hundred five",
+        "3,405 – Thirty-four thousand five",
+        "3,405 – Three hundred four and five"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Round off 68,492 to the nearest thousand.",
+      "choices": [
+        "68,000",
+        "69,000",
+        "70,000",
+        "68,500"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which of the following fractions is equal to ¾?",
+      "choices": [
+        "6/8",
+        "8/12",
+        "5/9",
+        "2/6"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is the greatest common factor (GCF) of 24 and 36?",
+      "choices": [
+        "6",
+        "8",
+        "12",
+        "18"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is the least common multiple (LCM) of 6, 8, and 12?",
+      "choices": [
+        "12",
+        "16",
+        "24",
+        "48"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which of the following decimals is equal to ⅖?",
+      "choices": [
+        "0.2",
+        "0.4",
+        "0.5",
+        "0.6"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Arrange in ascending order: 0.9, 0.11, 0.08, 0.2",
+      "choices": [
+        "0.08, 0.11, 0.2, 0.9",
+        "0.11, 0.08, 0.2, 0.9",
+        "0.2, 0.08, 0.11, 0.9",
+        "0.9, 0.2, 0.11, 0.08"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is ⅗ of 60?",
+      "choices": [
+        "30",
+        "35",
+        "36",
+        "40"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is 20% of 250?",
+      "choices": [
+        "20",
+        "25",
+        "40",
+        "50"
+      ],
+      "correctIndex": 1,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is 4,562 + 3,784?",
+      "choices": [
+        "8,246",
+        " 8,346",
+        "8,464",
+        "8,362"
+      ],
+      "correctIndex": 2,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is 9,783 – 5,627?",
+      "choices": [
+        "3,856 ",
+        "4,126",
+        "4,156",
+        "4,166"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is 324 × 8?",
+      "choices": [
+        "2,492",
+        "2,592",
+        "2,692 ",
+        "2,812"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is 945 ÷ 9?",
+      "choices": [
+        "100",
+        "101",
+        "105",
+        "110"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Find the sum: ⅜ + ¼",
+      "choices": [
+        "⅝",
+        "½",
+        "¾",
+        "⅞"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Subtract: ¾ – ⅖",
+      "choices": [
+        "⅕",
+        "7/20",
+        "⅗",
+        "⅘"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Multiply: 0.25 × 0.4",
+      "choices": [
+        "0.01",
+        "0.1",
+        "0.4",
+        "1.0"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Divide: 3.6 ÷ 0.6",
+      "choices": [
         "4",
+        "5",
+        "6",
+        "7"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which operation will solve: “A box contains 24 pencils equally divided among 6 students”?",
+      "choices": [
+        "Addition",
+        "Subtraction",
+        "Multiplication",
+        "Division"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A family spends ₱2,850 monthly on food. How much do they spend in a year?",
+      "choices": [
+        "₱30,500 ",
+        "₱32,400 ",
+        "₱34,200",
+        "₱36,000"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "How many sides does a hexagon have?",
+      "choices": [
+        "4",
+        "5",
         "6",
         "8"
       ],
-      "correctIndex": 1
+      "correctIndex": 0,
+      "timeSeconds": 60
     },
     {
-      "text": "3+3",
+      "text": "The sum of the interior angles of a triangle is —",
       "choices": [
-        "3",
-        "6",
+        "90°",
+        "120°",
+        "180°",
+        "360°"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A polygon with 4 equal sides and 4 right angles is a —",
+      "choices": [
+        "Rectangle",
+        "Rhombus",
+        "Square",
+        "Trapezoid"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Find the perimeter of a rectangle with length 8 cm and width 5 cm.",
+      "choices": [
+        "13 cm",
+        "16 cm",
+        "26 cm",
+        "40 cm"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Find the area of a square with side 6 m.",
+      "choices": [
+        "12 m²",
+        "18 m²",
+        "24 m² ",
+        "36 m²"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Find the area of a triangle with base 10 cm and height 5 cm.",
+      "choices": [
+        "15 cm² ",
+        "20 cm²",
+        "25 cm²",
+        "30 cm²"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A circle has a radius of 7 cm. Find its circumference (π = 3.14).",
+      "choices": [
+        "21.98 cm",
+        "38.48 cm",
+        "43.96 cm",
+        "49.82 cm"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which of the following is a right angle?",
+      "choices": [
+        "30° ",
+        "60°",
+        "90°",
+        "120°"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A triangle with sides 5 cm, 5 cm, and 8 cm is —",
+      "choices": [
+        "Scalene",
+        "Isosceles",
+        "Equilateral",
+        "Right"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Lines that form a 90° angle are called —",
+      "choices": [
+        "Parallel",
+        "Intersecting",
+        "Perpendicular",
+        "Diagonal"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "How many milliliters are there in 2 liters?",
+      "choices": [
+        "20 mL",
+        "200 mL ",
+        "2,000 mL ",
+        "20,000 mL"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Convert 1.5 meters to centimeters.",
+      "choices": [
+        "15 cm",
+        "150 cm",
+        "1,500 cm",
+        "15,000 cm"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is the mass of a pencil if it weighs 45 g in kilograms?",
+      "choices": [
+        "0.0045 kg ",
+        "0.045 kg ",
+        "0.45 kg",
+        "4.5 kg"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "How many seconds are there in 5 minutes?",
+      "choices": [
+        "60",
+        "120",
+        "240",
+        "300"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A rectangular garden is 8 m long and 6 m wide. What is its perimeter?",
+      "choices": [
+        "12 m",
+        "20 m",
+        "28 m",
+        "48 m"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A water tank can hold 250 L. How many 5-L containers can be filled from it?",
+      "choices": [
+        "25",
+        "30",
+        "40",
+        "50"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which measuring tool is best for finding the mass of a mango?",
+      "choices": [
+        "Ruler",
+        "Measuring cup",
+        "Thermometer",
+        "Weighing scale"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "The thermometer reads 37°C. What does it indicate?",
+      "choices": [
+        "Freezing point",
+        "Boiling point",
+        "Normal body temperature",
+        "Fever"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which is the best estimate of the height of a classroom door?",
+      "choices": [
+        "1 m",
+        "2 m",
+        "5 m",
+        "10 m"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "A rope is 3.75 meters long. How many centimeters is it?",
+      "choices": [
+        "37.5 cm",
+        "375 cm",
+        "3,750 cm",
+        "37,500 cm"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is the next term in the sequence: 2, 4, 6, 8, ___?",
+      "choices": [
         "9",
+        "10",
+        "11",
         "12"
       ],
-      "correctIndex": 1
+      "correctIndex": 0,
+      "timeSeconds": 60
     },
     {
-      "text": "4+4",
+      "text": "What is the rule in this pattern: 1, 2, 4, 8, 16, ___?",
       "choices": [
-        "4",
-        "8",
-        "12",
-        "1"
+        "Add 1",
+        "Multiply by 2",
+        "Subtract 2",
+        "Divide by 2"
       ],
-      "correctIndex": 1
+      "correctIndex": 0,
+      "timeSeconds": 60
     },
     {
-      "text": "5+5",
+      "text": "Evaluate: 5n if n = 6",
+      "choices": [
+        "11",
+        "20",
+        "25",
+        "30"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "What is the value of x if 6x = 42?",
       "choices": [
         "5",
-        "10",
-        "15",
-        "20"
+        "6",
+        "7",
+        "8"
       ],
-      "correctIndex": 1
+      "correctIndex": 0,
+      "timeSeconds": 60
     },
     {
-      "text": "6+6",
+      "text": "In the expression 3a + 4b, what are the variables?",
+      "choices": [
+        "3 and 4 ",
+        "a and b",
+        "3a and 4b",
+        "a only"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which equation represents “a number increased by 7 equals 15”?",
+      "choices": [
+        "x + 7 = 15 ",
+        "x – 7 = 15",
+        "7x = 15",
+        "x ÷ 7 = 15"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Which of the following represents a linear pattern?",
+      "choices": [
+        "2, 4, 6, 8, 10",
+        "1, 2, 4, 8, 16",
+        "1, 4, 9, 16, 25",
+        "5, 10, 20, 40, 80"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "If the side of a square is doubled, what happens to its area?",
+      "choices": [
+        "Doubled",
+        "Tripled",
+        "Becomes four times",
+        "Stays the same"
+      ],
+      "correctIndex": 0,
+      "timeSeconds": 60
+    },
+    {
+      "text": "Solve for n: n – 5 = 12",
       "choices": [
         "6",
-        "12",
-        "18",
-        "24"
+        "15",
+        "17",
+        "18"
       ],
-      "correctIndex": 1
+      "correctIndex": 0,
+      "timeSeconds": 60
     },
     {
-      "text": "7+7",
+      "text": "What number completes this pattern: 100, 90, 80, __, 60?",
       "choices": [
-        "7",
-        "14",
-        "21",
-        "28"
+        "50",
+        "70",
+        "75",
+        "65"
       ],
-      "correctIndex": 0
-    },
-    {
-      "text": "8+8",
-      "choices": [
-        "8",
-        "16",
-        "24",
-        "32"
-      ],
-      "correctIndex": 1
-    },
-    {
-      "text": "9+9",
-      "choices": [
-        "9",
-        "18",
-        "27",
-        "36"
-      ],
-      "correctIndex": 1
-    },
-    {
-      "text": "20+20",
-      "choices": [
-        "10",
-        "20",
-        "30",
-        "40"
-      ],
-      "correctIndex": 1
+      "correctIndex": 0,
+      "timeSeconds": 60
     }
   ]
 }
